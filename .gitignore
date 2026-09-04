@@ -1,0 +1,17 @@
+﻿__pycache__/
+*.pyc
+
+.env
+.env.*
+!.env.example
+
+temp/
+logs/
+backups/
+pending_patches/
+
+.venv/
+venv/
+
+.DS_Store
+Thumbs.db
