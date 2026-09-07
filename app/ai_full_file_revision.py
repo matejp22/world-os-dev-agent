@@ -75,7 +75,7 @@ def revise_candidate(
             "SEMANTIC REVIEW FEEDBACK:\n"
             f"{semantic_review}"
         ),
-        max_output_tokens=3000,
+        max_output_tokens=6000,
     )
 
     return response.output_text.strip()

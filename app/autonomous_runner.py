@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import argparse
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -19,6 +20,17 @@ LOG_DIR = PROJECT_ROOT / "logs"
 MAX_ROUNDS = 3
 
 
+def configure_utf8_output() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+
+        if reconfigure is not None:
+            reconfigure(
+                encoding="utf-8",
+                errors="replace",
+            )
+
+
 def parse_commands(raw_plan: str) -> list[str]:
     commands: list[str] = []
 
@@ -26,6 +38,9 @@ def parse_commands(raw_plan: str) -> list[str]:
         command = line.strip()
 
         if not command:
+            continue
+
+        if command.lower() == "no_commands_required":
             continue
 
         if command.lower().startswith("set-location"):
@@ -240,6 +255,8 @@ def main() -> None:
         final_report,
         encoding="utf-8",
     )
+
+    configure_utf8_output()
 
     print(final_report)
     print()

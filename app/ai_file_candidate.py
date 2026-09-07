@@ -65,7 +65,7 @@ def generate_candidate(goal: str) -> str:
             "CURRENT SOURCE FILES:\n"
             f"{sources}"
         ),
-        max_output_tokens=2500,
+        max_output_tokens=6000,
     )
 
     return response.output_text.strip()

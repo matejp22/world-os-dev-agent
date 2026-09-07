@@ -1,71 +1,103 @@
-﻿# LIVE DEVELOPMENT STATE
+# LIVE DEVELOPMENT STATE
 
-Project:
-World OS Research Engine
+Project: World OS Dev Agent
+Repository: C:\Users\matej\Documents\world-os-dev-agent
+GitHub: https://github.com/matejp22/world-os-dev-agent.git
+Branch: main
 
-Repository:
-C:\Users\matej\Documents\world-os-research-engine
-
-Branch:
-main
-
-Current subsystem:
-PORT_CORE_V2
-
-Current development focus:
-Research Engine port ingestion architecture and autonomous research workflows.
-
-Latest known repository commit:
-a230caf Add Port Area research extraction
-
-Current untracked items:
-- scripts/cleanup_port_core_v2_port_metrics_canary.py
-- supabase/.temp/
-
-Known status of cleanup script:
-- directly related to PORT_CORE_V2 Port_Metrics canary cleanup
-- dry-run by default
-- contains an explicitly gated database delete path
-- must NOT be executed autonomously
-- currently untracked
-- leave unchanged until explicit developer decision
-
-supabase/.temp:
-- local Supabase temporary/project metadata
-- do not inspect contents
-- do not send contents to AI
-- do not delete autonomously
-
-Completed Dev Agent capabilities:
-- PowerShell execution
+Current architecture:
+- PowerShell executor
 - stdout/stderr capture
-- persistent logs
 - command security policy
-- blocked destructive commands
+- output sanitizer
 - AI planner using gpt-5.6-luna
 - AI reviewer
-- output sanitizer
 - bounded autonomous read-only loop
-- safe targeted source-code reading
-- persistent project context loader
+- persistent World OS project context
+- targeted source-code inspection
+- AI full-file candidate generation
+- deterministic diff generation
+- semantic code review
+- bounded revision loop
+- compile-failure self-repair
+- pending patch queue
+- human approval gate
+- SHA256 integrity guards
+- backups
+- atomic full-file apply
+- py_compile validation
+- rollback safeguards
+- Developer Console V0.7
+- Continue Current Milestone orchestration
+- structured orchestration status parser
+- structured milestone result UI
+- UTF-8-safe autonomous runner output
+- UTF-8-safe continue milestone runner output
+- NO_COMMANDS_REQUIRED sentinel handling
+- stricter safe planner command contract
 
-Current Dev Agent mode:
-READ ONLY
+Current safety model:
+READ ONLY by default.
 
-Immediate next Dev Agent objective:
-Improve project-state awareness so the agent can continue World OS development
-from the exact current milestone instead of rediscovering the repository.
+Local Dev Agent source writes:
+Allowed only through explicit human-approved FULL_FILE_V2 workflow.
 
-Do not autonomously change World OS Research Engine code yet.
+World OS Research Engine writes:
+Still prohibited autonomously.
 
-Next architecture milestone:
-Add explicit task/handoff state to AI planning, then introduce human-approved
-local code patch generation.
+Git operations:
+git add / commit / push require human approval.
 
-Approval boundaries:
-- repository writes require human approval
-- git add requires human approval
-- git commit requires human approval
-- git push requires human approval
-- database writes require human approval
-- production changes require human approval
+Database writes:
+Require human approval.
+
+V0.6 STATUS:
+COMPLETE
+
+V0.7 STATUS:
+COMPLETE
+
+Verified V0.7 end-to-end behavior:
+
+Developer Console
+→ high-level development goal
+→ build planner
+→ selected objective
+→ bounded read-only investigation
+→ build patch
+→ compile / compile self-repair
+→ semantic review
+→ structured result parser
+→ current phase
+→ patch ID
+→ target file
+→ semantic decision
+→ semantic review
+→ READY_FOR_HUMAN_REVIEW / DRAFT / REJECTED callout
+→ pending patch queue
+→ explicit human approval
+→ explicit human apply
+
+No autonomous approval or apply is allowed.
+
+V0.8 STATUS:
+COMPLETE
+
+V1.5 STATUS:
+COMPLETE
+
+Current milestone:
+Developer Console V2.0 — Functional World OS Dev Agent.
+Current objective:
+Make the Developer Console the primary operating interface and complete the functional World OS Dev Agent contract so the agent can understand project mission, load persistent state, identify the correct next objective, inspect code, prepare and test changes, semantically review and queue changes, accept human approval, safely apply approved changes, update development state, resume after restart, and work across registered repositories under policy.
+Current objective status:
+COMPLETE
+Immediate next objective:
+
+Next milestone:
+
+Next milestone objective:
+
+Do not redesign FULL_FILE_V2.
+Do not enable World OS Research Engine writes.
+Do not weaken human approval boundaries.

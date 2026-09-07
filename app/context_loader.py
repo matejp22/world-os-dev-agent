@@ -8,12 +8,17 @@ CONTEXT_DIR = PROJECT_ROOT / "context"
 
 
 CONTEXT_FILES = (
-    "PROJECT.md",
-    "CURRENT_STATE.md",
+    "PROJECT_CHARTER.md",
+    "AGENT_PROMPT.md",
     "LIVE_STATE.md",
+    "CURRENT_STATE.md",
+    "PROJECT.md",
+    "RESEARCH_ENGINE_STATE.md",
+    "WEB_STATE.md",
     "SAFETY_RULES.md",
     "GIT_RULES.md",
     "DB_RULES.md",
+    "ROADMAP.md",
 )
 
 
