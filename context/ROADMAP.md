@@ -156,6 +156,25 @@ World OS Dev Agent.
 
 ---
 
+## V2.1 — Self-steering development and human-approved Research Engine development
+
+Goal:
+Make the Developer Console self-steering across bounded development steps so the user can operate primarily inside the Console without external prompt/result handoffs, then enable workspace-bound human-approved source development in world-os-research-engine while preserving explicit approval, SHA guards, backups, rollback, no autonomous Git writes, and no autonomous database or Supabase writes.
+
+First objective:
+Make Console determine and present the next safe development action after investigation, patch preparation, review, apply, and validation, with a single human-controlled Continue safely action.
+
+Safety boundaries:
+
+- explicit human approval remains mandatory,
+- approved source apply remains SHA-guarded and reversible,
+- no autonomous Git writes,
+- no autonomous database or Supabase writes,
+- world-os-web remains READ_ONLY until explicitly changed,
+- Research Engine source writes remain disabled until workspace-bound apply is implemented and verified.
+
+---
+
 ## Later phases
 
 ### V2.x

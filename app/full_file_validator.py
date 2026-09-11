@@ -74,14 +74,52 @@ def parse_candidate(
         "NEW_FILE_CONTENT:",
     )
 
-    if not target_file.startswith("app/"):
+    if not target_file:
         raise RuntimeError(
-            "Target must be inside app/."
+            "Target file is empty."
+        )
+
+    target_path = Path(target_file)
+
+    if target_path.is_absolute():
+        raise RuntimeError(
+            "Target must be workspace-relative."
+        )
+
+    parts = tuple(
+        part
+        for part in target_file.split("/")
+        if part
+    )
+
+    if not parts or any(
+        part in {".", ".."}
+        for part in parts
+    ):
+        raise RuntimeError(
+            "Target path may not contain traversal segments."
         )
 
     if not target_file.endswith(".py"):
         raise RuntimeError(
             "Target must be a Python file."
+        )
+
+    is_app_target = target_file.startswith(
+        "app/"
+    )
+
+    is_existing_test_script = (
+        len(parts) == 2
+        and parts[0] == "scripts"
+        and parts[1].startswith("test_")
+        and parts[1].endswith(".py")
+    )
+
+    if not is_app_target and not is_existing_test_script:
+        raise RuntimeError(
+            "Target must be inside app/ or a top-level "
+            "scripts/test_*.py file."
         )
 
     return target_file, new_content
@@ -115,12 +153,36 @@ def prepare_candidate() -> CandidateValidation:
 
     try:
         target_path.relative_to(
-            APP_ROOT
+            ROOT
         )
     except ValueError as exc:
         raise RuntimeError(
-            "Target escapes app directory."
+            "Target escapes workspace."
         ) from exc
+
+    is_app_target = target_file.startswith(
+        "app/"
+    )
+
+    is_existing_test_script = (
+        target_file.startswith("scripts/test_")
+        and target_file.endswith(".py")
+        and target_file.count("/") == 1
+    )
+
+    if is_app_target:
+        try:
+            target_path.relative_to(
+                APP_ROOT
+            )
+        except ValueError as exc:
+            raise RuntimeError(
+                "Target escapes app directory."
+            ) from exc
+    elif not is_existing_test_script:
+        raise RuntimeError(
+            "Target is outside the permitted FULL_FILE_V2 scope."
+        )
 
     if not target_path.exists():
         raise RuntimeError(

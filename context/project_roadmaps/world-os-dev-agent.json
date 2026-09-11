@@ -1,0 +1,856 @@
+{
+  "project_id": "world-os-dev-agent",
+  "title": "World OS Dev Agent",
+  "workspace_name": "world-os-dev-agent",
+  "nodes": [
+    {
+      "node_id": "group-core-agent-foundation",
+      "title": "Core Agent Foundation",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "COMPLETED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-core-agent-runtime",
+      "title": "Core Agent Runtime",
+      "kind": "MILESTONE",
+      "parent_id": "group-core-agent-foundation",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-workspace-registry",
+      "title": "Workspace Registry & Policy Boundary",
+      "kind": "MILESTONE",
+      "parent_id": "group-core-agent-foundation",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [
+        "milestone-core-agent-runtime"
+      ],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "group-human-approved-patch-pipeline",
+      "title": "Human-Approved Patch Pipeline",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "COMPLETED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-new-file-v2",
+      "title": "NEW_FILE_V2 Candidate Pipeline",
+      "kind": "MILESTONE",
+      "parent_id": "group-human-approved-patch-pipeline",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-full-file-approval",
+      "title": "Human Approval Boundary",
+      "kind": "MILESTONE",
+      "parent_id": "group-human-approved-patch-pipeline",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-new-file-v2"
+      ],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-full-file-apply-v2",
+      "title": "Verified Full-File Apply V2",
+      "kind": "MILESTONE",
+      "parent_id": "group-human-approved-patch-pipeline",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-full-file-approval"
+      ],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "group-execution-state-handoff",
+      "title": "Execution State & Milestone Handoff",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "IN_PROGRESS",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-live-state",
+      "title": "LIVE_STATE Execution Context",
+      "kind": "MILESTONE",
+      "parent_id": "group-execution-state-handoff",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-linear-roadmap-handoff",
+      "title": "Linear Execution ROADMAP Handoff",
+      "kind": "MILESTONE",
+      "parent_id": "group-execution-state-handoff",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [
+        "milestone-live-state"
+      ],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-execution-state-hardening",
+      "title": "Execution State Hardening",
+      "kind": "MILESTONE",
+      "parent_id": "group-execution-state-handoff",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-linear-roadmap-handoff"
+      ],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "group-project-roadmap-engine",
+      "title": "Project Roadmap Engine",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "COMPLETED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-project-roadmap-types",
+      "title": "Project Roadmap Types",
+      "kind": "MILESTONE",
+      "parent_id": "group-project-roadmap-engine",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-project-roadmap-progress",
+      "title": "Project Roadmap Progress Engine",
+      "kind": "MILESTONE",
+      "parent_id": "group-project-roadmap-engine",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-project-roadmap-types"
+      ],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-project-roadmap-store",
+      "title": "Project Roadmap Store",
+      "kind": "MILESTONE",
+      "parent_id": "group-project-roadmap-engine",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-project-roadmap-progress"
+      ],
+      "verification_status": "PASSED",
+      "patch_id": "fe93ffbb-eed3-4360-899b-09207be93d4f",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "group-master-roadmap-engine",
+      "title": "Master Roadmap Engine",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "COMPLETED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-master-roadmap-types",
+      "title": "Master Roadmap Types",
+      "kind": "MILESTONE",
+      "parent_id": "group-master-roadmap-engine",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "ccadd94c-2435-40d3-a4a2-51ba84178b2d",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-master-roadmap-progress",
+      "title": "Master Roadmap Progress Engine",
+      "kind": "MILESTONE",
+      "parent_id": "group-master-roadmap-engine",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-master-roadmap-types"
+      ],
+      "verification_status": "PASSED",
+      "patch_id": "9b33bff1-2ac0-4fcd-b2a5-32379af6f846",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-master-roadmap-store",
+      "title": "Master Roadmap Store",
+      "kind": "MILESTONE",
+      "parent_id": "group-master-roadmap-engine",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-master-roadmap-progress"
+      ],
+      "verification_status": "PASSED",
+      "patch_id": "171a76d0-98be-4de7-bdef-76b8f8164d81",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "group-data-file-safety-primitives",
+      "title": "DATA_FILE_V1 Safety Primitives",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "COMPLETED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-data-file-target",
+      "title": "Roadmap Data Target Resolver",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-safety-primitives",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "b3355551-4152-41d6-953e-d050309e8aa3",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-data-file-validator",
+      "title": "Roadmap Data Validator",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-safety-primitives",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "550e18f5-bb8b-4463-acbb-a59a280a7a1a",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-data-file-canonicalizer",
+      "title": "Canonical Roadmap Candidate Serializer",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-safety-primitives",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "07a1ca1d-d595-49a7-bd4f-81bfc2328cec",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-data-file-types",
+      "title": "DATA_FILE_V1 Types",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-safety-primitives",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "38c64756-0481-4ede-8fd1-802e96e908d5",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-data-file-record-parser",
+      "title": "DATA_FILE_V1 Record Parser",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-safety-primitives",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "45f7123a-1047-4323-b0f5-213f86ceba57",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "group-data-file-lifecycle",
+      "title": "DATA_FILE_V1 Lifecycle & Record Persistence",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "COMPLETED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-data-file-lifecycle-rules",
+      "title": "DATA_FILE_V1 Lifecycle Rules",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-lifecycle",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "49a0c3a2-26fa-4976-893c-245cbf722c47",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-data-file-record-store",
+      "title": "DATA_FILE_V1 Record Store",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-lifecycle",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "cc8a58ca-0051-4c12-91e2-8d444c160bc0",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-data-file-record-transition",
+      "title": "Immutable Record Transition",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-lifecycle",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "e82c3fdb-e90f-4e4a-8485-ffd147f40351",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-data-file-existing-record-write",
+      "title": "Atomic Existing Record Writer",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-lifecycle",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "b06cd6f2-35af-4192-85c8-2db71c3e8604",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-data-file-transition-persistence",
+      "title": "Lifecycle Transition Persistence",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-lifecycle",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "5dad2752-4b75-437c-a602-68c23eb241a5",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "group-data-file-target-apply",
+      "title": "DATA_FILE_V1 Target Apply",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "COMPLETED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-data-file-candidate-verify",
+      "title": "Candidate Integrity Verification",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-target-apply",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "45ec5f4d-c325-4348-8288-77976a4ff888",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-data-file-target-state-verify",
+      "title": "Target State Verification",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-target-apply",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "ab64e45b-26c1-4f93-833d-06032b3691d4",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-data-file-target-write",
+      "title": "Atomic Target Writer",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-target-apply",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "18aec652-0d23-4187-ac52-b3f5ab34583f",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-data-file-approved-apply",
+      "title": "Approved DATA_FILE_V1 Apply",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-target-apply",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "b802ad06-862c-495a-8263-e6327b55f317",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-data-file-apply-lifecycle-plan",
+      "title": "Post-Apply Lifecycle Plan",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-target-apply",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "de080c02-a709-4d1a-bc7c-3877f8b011ae",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-data-file-apply-with-lifecycle",
+      "title": "Apply + Lifecycle Orchestrator",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-target-apply",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "535e313e-3c26-4fde-94a5-8fe211ad85ec",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "group-data-file-build-pipeline",
+      "title": "DATA_FILE_V1 Build Pipeline",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "COMPLETED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-data-file-new-record-write",
+      "title": "Atomic New Queue Record Writer",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-build-pipeline",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "c7a39be7-2bd2-4127-9532-5488b0c272d3",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-data-file-record-factory",
+      "title": "DATA_FILE_V1 Record Factory",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-build-pipeline",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "e396e9e6-c1b2-48e8-9f6a-b4d48a0b6314",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-data-file-artifact-write",
+      "title": "Candidate & Diff Artifact Writer",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-build-pipeline",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "bdf32d38-b3ea-4b3b-8125-522d89e2e43f",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-data-file-build-pipeline",
+      "title": "DATA_FILE_V1 Build Pipeline",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-build-pipeline",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "f8939aea-8668-4ae7-bad4-ea44569c7149",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-roadmap-candidate-wrapper",
+      "title": "Roadmap Candidate Builder",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-build-pipeline",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "18002f88-57bd-4c0b-b06c-dfd7da978eaf",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-roadmap-build-orchestrator",
+      "title": "End-to-End Roadmap Build Orchestrator",
+      "kind": "MILESTONE",
+      "parent_id": "group-data-file-build-pipeline",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "9aa2e0ff-3ccb-41fa-8e55-2b1a617cd10f",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "group-canonical-roadmap-population",
+      "title": "Canonical Roadmap Population",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "IN_PROGRESS",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-world-os-master-roadmap",
+      "title": "World OS 2050 Master Roadmap",
+      "kind": "MILESTONE",
+      "parent_id": "group-canonical-roadmap-population",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "0a7483a0-04d3-4cb3-8f18-1676a39c6c5f",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-research-engine-roadmap",
+      "title": "Research Engine ProjectRoadmap",
+      "kind": "MILESTONE",
+      "parent_id": "group-canonical-roadmap-population",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "261e7be4-6d9e-41ac-9576-92a8a6afc3e0",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-dev-agent-roadmap",
+      "title": "Dev Agent ProjectRoadmap",
+      "kind": "MILESTONE",
+      "parent_id": "group-canonical-roadmap-population",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "16979cb6-9a19-439b-ab81-680a3f1e60c7",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-web-roadmap",
+      "title": "World OS Web ProjectRoadmap",
+      "kind": "MILESTONE",
+      "parent_id": "group-canonical-roadmap-population",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-dev-agent-roadmap"
+      ],
+      "verification_status": "PASSED",
+      "patch_id": "8712c14d-7bcb-4962-b73e-8e3f4c427e13",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "group-roadmap-aggregation",
+      "title": "Master / Project Aggregation",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-project-completion-resolver",
+      "title": "Project Completion Resolver",
+      "kind": "MILESTONE",
+      "parent_id": "group-roadmap-aggregation",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-dev-agent-roadmap"
+      ],
+      "verification_status": "PASSED",
+      "patch_id": "016b793e-a6a0-4361-9624-70c0920d42d0",
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-master-project-sync",
+      "title": "Master-to-Project Read-Only Sync",
+      "kind": "MILESTONE",
+      "parent_id": "group-roadmap-aggregation",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-project-completion-resolver"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-global-progress-snapshot",
+      "title": "Global Progress Snapshot",
+      "kind": "MILESTONE",
+      "parent_id": "group-roadmap-aggregation",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-master-project-sync"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "group-roadmap-console",
+      "title": "Roadmap Console",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-roadmap-console-readonly",
+      "title": "Read-Only Roadmap Console",
+      "kind": "MILESTONE",
+      "parent_id": "group-roadmap-console",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-global-progress-snapshot"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-roadmap-graphical-progress",
+      "title": "Graphical Progress & Achievement Tree",
+      "kind": "MILESTONE",
+      "parent_id": "group-roadmap-console",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-roadmap-console-readonly"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "group-verified-auto-sync",
+      "title": "Verified Roadmap Auto-Sync",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-lifecycle-roadmap-sync",
+      "title": "Lifecycle-to-Roadmap Verified Sync",
+      "kind": "MILESTONE",
+      "parent_id": "group-verified-auto-sync",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "milestone-master-project-sync"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-strict-auto-completion",
+      "title": "Strict Verified Milestone Auto-Completion",
+      "kind": "MILESTONE",
+      "parent_id": "group-verified-auto-sync",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "milestone-lifecycle-roadmap-sync"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "group-recovery-rollback",
+      "title": "Recovery & Rollback",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-data-file-recovery",
+      "title": "DATA_FILE_V1 Partial-State Recovery",
+      "kind": "MILESTONE",
+      "parent_id": "group-recovery-rollback",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "milestone-data-file-apply-with-lifecycle"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-data-file-rollback",
+      "title": "Verified DATA_FILE_V1 Rollback",
+      "kind": "MILESTONE",
+      "parent_id": "group-recovery-rollback",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "milestone-data-file-recovery"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "group-autonomous-engineering",
+      "title": "Autonomous Engineering",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-autonomous-task-planning",
+      "title": "Autonomous Task Planning",
+      "kind": "MILESTONE",
+      "parent_id": "group-autonomous-engineering",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "milestone-strict-auto-completion"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-multi-repo-coordination",
+      "title": "Multi-Repository Coordination",
+      "kind": "MILESTONE",
+      "parent_id": "group-autonomous-engineering",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "milestone-autonomous-task-planning"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-production-autonomous-dev-agent",
+      "title": "Production Autonomous Dev Agent",
+      "kind": "MILESTONE",
+      "parent_id": "group-autonomous-engineering",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "milestone-multi-repo-coordination",
+        "milestone-data-file-rollback"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    }
+  ]
+}

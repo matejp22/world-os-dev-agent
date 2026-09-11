@@ -5,6 +5,7 @@ from pathlib import Path
 from openai import OpenAI
 
 from app.context_loader import load_project_context
+from app.workspace_registry import get_workspace_profile
 
 
 MODEL = "gpt-5.6-luna"
@@ -12,7 +13,6 @@ MODEL = "gpt-5.6-luna"
 client = OpenAI()
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-APP_DIR = PROJECT_ROOT / "app"
 
 
 INSPECT_PROMPT = """
@@ -21,7 +21,8 @@ You are the inspection-planning layer of WORLD OS DEV AGENT.
 You receive:
 - WORLD OS project context
 - a development goal
-- an exact list of existing local Dev Agent source files
+- the active workspace name
+- an exact list of existing source files inside that workspace
 
 Your task is to select the minimum set of EXISTING files that must be inspected
 before a safe patch can be proposed.
@@ -39,17 +40,58 @@ RULES:
 """
 
 
-def existing_app_files() -> list[str]:
-    return sorted(
-        str(path.relative_to(PROJECT_ROOT)).replace("\\", "/")
-        for path in APP_DIR.glob("*.py")
-        if path.name != "__init__.py"
+def existing_app_files(
+    workspace_name: str = "world-os-dev-agent",
+) -> list[str]:
+    workspace = get_workspace_profile(
+        workspace_name
     )
 
+    workspace_root = workspace.path.resolve()
+    app_dir = workspace_root / "app"
 
-def propose_inspection(goal: str) -> str:
+    if not app_dir.exists() or not app_dir.is_dir():
+        raise RuntimeError(
+            f"Workspace app directory does not exist: {app_dir}"
+        )
+
+    if workspace.name == "world-os-dev-agent":
+        paths = app_dir.glob("*.py")
+    else:
+        paths = app_dir.rglob("*.py")
+
+    files = [
+        str(path.relative_to(workspace_root)).replace("\\", "/")
+        for path in paths
+        if path.is_file()
+        and path.name != "__init__.py"
+    ]
+
+    scripts_dir = workspace_root / "scripts"
+
+    if scripts_dir.exists() and scripts_dir.is_dir():
+        files.extend(
+            str(path.relative_to(workspace_root)).replace("\\", "/")
+            for path in scripts_dir.glob("test_*.py")
+            if path.is_file()
+        )
+
+    return sorted(files)
+
+
+def propose_inspection(
+    goal: str,
+    workspace_name: str = "world-os-dev-agent",
+) -> str:
     project_context = load_project_context()
-    files = existing_app_files()
+
+    workspace = get_workspace_profile(
+        workspace_name
+    )
+
+    files = existing_app_files(
+        workspace.name
+    )
 
     response = client.responses.create(
         model=MODEL,
@@ -58,6 +100,8 @@ def propose_inspection(goal: str) -> str:
         input=(
             "WORLD OS PROJECT CONTEXT:\n"
             f"{project_context}\n\n"
+            "ACTIVE WORKSPACE:\n"
+            f"{workspace.name}\n\n"
             "DEVELOPMENT GOAL:\n"
             f"{goal}\n\n"
             "EXISTING FILES:\n"

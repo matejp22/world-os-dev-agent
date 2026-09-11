@@ -1,0 +1,384 @@
+{
+  "master_id": "world-os-2050",
+  "title": "World OS 2050",
+  "target": "2050",
+  "nodes": [
+    {
+      "node_id": "program-core-data",
+      "title": "Core Data Platform",
+      "kind": "PROGRAM",
+      "parent_id": null,
+      "status": "IN_PROGRESS",
+      "weight": 0.0,
+      "dependencies": [],
+      "project_id": null
+    },
+    {
+      "node_id": "program-research-intelligence",
+      "title": "Research Intelligence",
+      "kind": "PROGRAM",
+      "parent_id": null,
+      "status": "IN_PROGRESS",
+      "weight": 0.0,
+      "dependencies": [],
+      "project_id": null
+    },
+    {
+      "node_id": "program-autonomous-engineering",
+      "title": "Autonomous Engineering",
+      "kind": "PROGRAM",
+      "parent_id": null,
+      "status": "IN_PROGRESS",
+      "weight": 0.0,
+      "dependencies": [],
+      "project_id": null
+    },
+    {
+      "node_id": "program-canonical-api",
+      "title": "Canonical API",
+      "kind": "PROGRAM",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "project_id": null
+    },
+    {
+      "node_id": "program-world-os-interface",
+      "title": "World OS Interface",
+      "kind": "PROGRAM",
+      "parent_id": null,
+      "status": "IN_PROGRESS",
+      "weight": 0.0,
+      "dependencies": [],
+      "project_id": null
+    },
+    {
+      "node_id": "program-digital-twin",
+      "title": "Digital Twin",
+      "kind": "PROGRAM",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "project_id": null
+    },
+    {
+      "node_id": "program-domain-platform",
+      "title": "Infrastructure Domain Platform",
+      "kind": "PROGRAM",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "project_id": null
+    },
+    {
+      "node_id": "program-autonomous-data-ops",
+      "title": "Autonomous Data Operations",
+      "kind": "PROGRAM",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "project_id": null
+    },
+    {
+      "node_id": "program-governance-quality",
+      "title": "Governance & Data Quality",
+      "kind": "PROGRAM",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "project_id": null
+    },
+    {
+      "node_id": "program-global-scale",
+      "title": "Global Production Scale",
+      "kind": "PROGRAM",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "project_id": null
+    },
+    {
+      "node_id": "project-core-data-platform",
+      "title": "Core Data Platform",
+      "kind": "PROJECT",
+      "parent_id": "program-core-data",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [],
+      "project_id": "world-os-core-data-platform"
+    },
+    {
+      "node_id": "project-canonical-graph",
+      "title": "Canonical Graph",
+      "kind": "PROJECT",
+      "parent_id": "program-core-data",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "project-core-data-platform"
+      ],
+      "project_id": "world-os-canonical-graph"
+    },
+    {
+      "node_id": "project-evidence-store",
+      "title": "Evidence Store",
+      "kind": "PROJECT",
+      "parent_id": "program-core-data",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "project-core-data-platform"
+      ],
+      "project_id": "world-os-evidence-store"
+    },
+    {
+      "node_id": "project-research-engine",
+      "title": "Research Engine",
+      "kind": "PROJECT",
+      "parent_id": "program-research-intelligence",
+      "status": "IN_PROGRESS",
+      "weight": 10.0,
+      "dependencies": [],
+      "project_id": "world-os-research-engine"
+    },
+    {
+      "node_id": "project-dev-agent",
+      "title": "Dev Agent",
+      "kind": "PROJECT",
+      "parent_id": "program-autonomous-engineering",
+      "status": "IN_PROGRESS",
+      "weight": 10.0,
+      "dependencies": [],
+      "project_id": "world-os-dev-agent"
+    },
+    {
+      "node_id": "project-canonical-api",
+      "title": "Canonical API",
+      "kind": "PROJECT",
+      "parent_id": "program-canonical-api",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "project-core-data-platform",
+        "project-canonical-graph",
+        "project-evidence-store"
+      ],
+      "project_id": "world-os-canonical-api"
+    },
+    {
+      "node_id": "project-sdk-contracts",
+      "title": "SDK & Contracts",
+      "kind": "PROJECT",
+      "parent_id": "program-canonical-api",
+      "status": "NOT_STARTED",
+      "weight": 3.0,
+      "dependencies": [
+        "project-canonical-api"
+      ],
+      "project_id": "world-os-sdk-contracts"
+    },
+    {
+      "node_id": "project-world-os-web",
+      "title": "World OS Web",
+      "kind": "PROJECT",
+      "parent_id": "program-world-os-interface",
+      "status": "IN_PROGRESS",
+      "weight": 5.0,
+      "dependencies": [
+        "project-canonical-api"
+      ],
+      "project_id": "world-os-web"
+    },
+    {
+      "node_id": "project-operations-console",
+      "title": "Operations Console",
+      "kind": "PROJECT",
+      "parent_id": "program-world-os-interface",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "project-dev-agent",
+        "project-research-engine"
+      ],
+      "project_id": "world-os-operations-console"
+    },
+    {
+      "node_id": "project-geospatial-engine",
+      "title": "Geospatial Engine",
+      "kind": "PROJECT",
+      "parent_id": "program-digital-twin",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "project-canonical-graph"
+      ],
+      "project_id": "world-os-geospatial-engine"
+    },
+    {
+      "node_id": "project-digital-twin-core",
+      "title": "Digital Twin Core",
+      "kind": "PROJECT",
+      "parent_id": "program-digital-twin",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "project-canonical-graph",
+        "project-geospatial-engine",
+        "project-canonical-api"
+      ],
+      "project_id": "world-os-digital-twin-core"
+    },
+    {
+      "node_id": "project-simulation-engine",
+      "title": "Simulation Engine",
+      "kind": "PROJECT",
+      "parent_id": "program-digital-twin",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "project-digital-twin-core"
+      ],
+      "project_id": "world-os-simulation-engine"
+    },
+    {
+      "node_id": "project-domain-model-library",
+      "title": "Domain Model Library",
+      "kind": "PROJECT",
+      "parent_id": "program-domain-platform",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "project-core-data-platform",
+        "project-research-engine"
+      ],
+      "project_id": "world-os-domain-model-library"
+    },
+    {
+      "node_id": "project-domain-adapter-runtime",
+      "title": "Domain Adapter Runtime",
+      "kind": "PROJECT",
+      "parent_id": "program-domain-platform",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "project-domain-model-library",
+        "project-research-engine"
+      ],
+      "project_id": "world-os-domain-adapter-runtime"
+    },
+    {
+      "node_id": "project-autonomous-population",
+      "title": "Autonomous Population",
+      "kind": "PROJECT",
+      "parent_id": "program-autonomous-data-ops",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "project-research-engine",
+        "project-core-data-platform",
+        "project-governance-engine"
+      ],
+      "project_id": "world-os-autonomous-population"
+    },
+    {
+      "node_id": "project-change-detection",
+      "title": "Change Detection",
+      "kind": "PROJECT",
+      "parent_id": "program-autonomous-data-ops",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "project-autonomous-population",
+        "project-evidence-store"
+      ],
+      "project_id": "world-os-change-detection"
+    },
+    {
+      "node_id": "project-governance-engine",
+      "title": "Governance Engine",
+      "kind": "PROJECT",
+      "parent_id": "program-governance-quality",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "project-core-data-platform",
+        "project-evidence-store"
+      ],
+      "project_id": "world-os-governance-engine"
+    },
+    {
+      "node_id": "project-quality-benchmarking",
+      "title": "Quality Benchmarking",
+      "kind": "PROJECT",
+      "parent_id": "program-governance-quality",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "project-research-engine",
+        "project-evidence-store"
+      ],
+      "project_id": "world-os-quality-benchmarking"
+    },
+    {
+      "node_id": "project-security-reliability",
+      "title": "Security & Reliability",
+      "kind": "PROJECT",
+      "parent_id": "program-global-scale",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "project-core-data-platform",
+        "project-canonical-api"
+      ],
+      "project_id": "world-os-security-reliability"
+    },
+    {
+      "node_id": "project-global-deployment",
+      "title": "Global Deployment",
+      "kind": "PROJECT",
+      "parent_id": "program-global-scale",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "project-canonical-api",
+        "project-autonomous-population",
+        "project-governance-engine",
+        "project-security-reliability"
+      ],
+      "project_id": "world-os-global-deployment"
+    },
+    {
+      "node_id": "project-observability-finops",
+      "title": "Observability & FinOps",
+      "kind": "PROJECT",
+      "parent_id": "program-global-scale",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "project-global-deployment"
+      ],
+      "project_id": "world-os-observability-finops"
+    },
+    {
+      "node_id": "project-global-coverage",
+      "title": "Global Coverage",
+      "kind": "PROJECT",
+      "parent_id": "program-global-scale",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "project-global-deployment",
+        "project-change-detection",
+        "project-quality-benchmarking",
+        "project-domain-adapter-runtime"
+      ],
+      "project_id": "world-os-global-coverage"
+    }
+  ]
+}

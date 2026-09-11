@@ -11,8 +11,14 @@ from app.live_state import (
     load_live_state,
 )
 from app.live_state_handoff_writer import (
+    LIVE_STATE_PATH,
+    ROADMAP_PATH,
     LiveStateHandoffCandidate,
     build_live_state_handoff_candidate,
+)
+from app.milestone_handoff import (
+    milestone_version,
+    roadmap_expected_successor,
 )
 
 
@@ -135,6 +141,61 @@ def apply_live_state_handoff(
             "LIVE_STATE candidate original SHA mismatch."
         )
 
+    previous_version = milestone_version(
+        candidate.current_milestone
+    )
+
+    next_version = milestone_version(
+        candidate.next_milestone
+    )
+
+    if previous_version is None:
+        raise RuntimeError(
+            "Previous milestone version is missing."
+        )
+
+    if next_version is None:
+        raise RuntimeError(
+            "Next milestone version is missing."
+        )
+
+    effective_roadmap_path = (
+        roadmap_path
+        if roadmap_path is not None
+        else ROADMAP_PATH
+    )
+
+    if not effective_roadmap_path.exists():
+        raise RuntimeError(
+            "ROADMAP target does not exist."
+        )
+
+    if not effective_roadmap_path.is_file():
+        raise RuntimeError(
+            "ROADMAP target is not a regular file."
+        )
+
+    roadmap_text = effective_roadmap_path.read_text(
+        encoding="utf-8-sig"
+    )
+
+    expected_successor = roadmap_expected_successor(
+        roadmap_text,
+        previous_version,
+    )
+
+    if expected_successor is None:
+        raise RuntimeError(
+            "ROADMAP does not define a deterministic "
+            "successor for the current milestone."
+        )
+
+    if next_version != expected_successor:
+        raise RuntimeError(
+            "Candidate milestone is not the immediate "
+            "ROADMAP successor."
+        )
+
     candidate_bytes = candidate.candidate_content.encode(
         "utf-8"
     )
@@ -163,10 +224,21 @@ def apply_live_state_handoff(
         )
     )
 
-    if backup_path.exists():
-        raise RuntimeError(
-            "LIVE_STATE backup path already exists."
-        )
+    backup_preexisting = backup_path.exists()
+
+    if backup_preexisting:
+        if not backup_path.is_file():
+            raise RuntimeError(
+                "Existing LIVE_STATE backup is not a regular file."
+            )
+
+        if _sha256_file(
+            backup_path
+        ) != actual_sha:
+            raise RuntimeError(
+                "Existing LIVE_STATE backup SHA does not match "
+                "the current canonical LIVE_STATE."
+            )
 
     stage_path = live_state_path.with_name(
         "." + live_state_path.name + ".handoff.stage"
@@ -180,10 +252,11 @@ def apply_live_state_handoff(
     source_replaced = False
 
     try:
-        shutil.copy2(
-            live_state_path,
-            backup_path,
-        )
+        if not backup_preexisting:
+            shutil.copy2(
+                live_state_path,
+                backup_path,
+            )
 
         if _sha256_file(
             backup_path
@@ -232,7 +305,7 @@ def apply_live_state_handoff(
 
         if current_milestone_version(
             parsed
-        ) != "V2.0":
+        ) != next_version:
             raise RuntimeError(
                 "Applied LIVE_STATE current milestone validation failed."
             )
@@ -252,9 +325,9 @@ def apply_live_state_handoff(
                 "Applied LIVE_STATE next objective must be empty."
             )
 
-        if "V1.5" not in parsed.completed_milestones:
+        if previous_version not in parsed.completed_milestones:
             raise RuntimeError(
-                "Applied LIVE_STATE lost V1.5 COMPLETE history."
+                "Applied LIVE_STATE lost previous COMPLETE milestone."
             )
 
         return LiveStateHandoffApplyResult(

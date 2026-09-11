@@ -1,0 +1,612 @@
+{
+  "project_id": "world-os-web",
+  "title": "World OS Web",
+  "workspace_name": "world-os-web",
+  "nodes": [
+    {
+      "node_id": "group-web-foundation",
+      "title": "Web Foundation",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "COMPLETED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-nextjs-foundation",
+      "title": "Next.js Application Foundation",
+      "kind": "MILESTONE",
+      "parent_id": "group-web-foundation",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-maplibre-foundation",
+      "title": "MapLibre Foundation",
+      "kind": "MILESTONE",
+      "parent_id": "group-web-foundation",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-nextjs-foundation"
+      ],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "group-sea-logistics-routing",
+      "title": "Sea Logistics Routing",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "COMPLETED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-port-overview-route",
+      "title": "Port Overview Route",
+      "kind": "MILESTONE",
+      "parent_id": "group-sea-logistics-routing",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-port-assets-route",
+      "title": "Port Assets Route",
+      "kind": "MILESTONE",
+      "parent_id": "group-sea-logistics-routing",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-port-connectivity-route",
+      "title": "Port Connectivity Route",
+      "kind": "MILESTONE",
+      "parent_id": "group-sea-logistics-routing",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-port-metrics-route",
+      "title": "Port Metrics Route",
+      "kind": "MILESTONE",
+      "parent_id": "group-sea-logistics-routing",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-port-projects-route",
+      "title": "Port Projects Route",
+      "kind": "MILESTONE",
+      "parent_id": "group-sea-logistics-routing",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-port-sources-route",
+      "title": "Port Sources Route",
+      "kind": "MILESTONE",
+      "parent_id": "group-sea-logistics-routing",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-port-terminals-route",
+      "title": "Port Terminals Route",
+      "kind": "MILESTONE",
+      "parent_id": "group-sea-logistics-routing",
+      "status": "COMPLETED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "group-port-experience",
+      "title": "Port Experience",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "IN_PROGRESS",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-port-shell",
+      "title": "Port Detail Shell",
+      "kind": "MILESTONE",
+      "parent_id": "group-port-experience",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": null,
+      "completed_at": "2026-09-11T00:00:00+02:00"
+    },
+    {
+      "node_id": "milestone-port-map-theme",
+      "title": "Port Map Theme Upgrade",
+      "kind": "MILESTONE",
+      "parent_id": "group-port-experience",
+      "status": "IN_PROGRESS",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-port-shell"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-port-data-binding",
+      "title": "Canonical Port Data Binding",
+      "kind": "MILESTONE",
+      "parent_id": "group-port-experience",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "milestone-port-map-theme"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "group-canonical-api-integration",
+      "title": "Canonical API Integration",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-api-client",
+      "title": "Canonical API Client",
+      "kind": "MILESTONE",
+      "parent_id": "group-canonical-api-integration",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-port-read-models",
+      "title": "Port Read Models",
+      "kind": "MILESTONE",
+      "parent_id": "group-canonical-api-integration",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-api-client"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-source-evidence-ui",
+      "title": "Source & Evidence Integration",
+      "kind": "MILESTONE",
+      "parent_id": "group-canonical-api-integration",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-port-read-models"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "group-roadmap-progress-ui",
+      "title": "Roadmap & Progress UI",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-roadmap-project-selector",
+      "title": "Project Selector",
+      "kind": "MILESTONE",
+      "parent_id": "group-roadmap-progress-ui",
+      "status": "NOT_STARTED",
+      "weight": 3.0,
+      "dependencies": [],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-global-progress-ui",
+      "title": "Global Progress UI",
+      "kind": "MILESTONE",
+      "parent_id": "group-roadmap-progress-ui",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-roadmap-project-selector"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-project-progress-ui",
+      "title": "Project Progress UI",
+      "kind": "MILESTONE",
+      "parent_id": "group-roadmap-progress-ui",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-roadmap-project-selector"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-achievement-tree",
+      "title": "Achievement Tree",
+      "kind": "MILESTONE",
+      "parent_id": "group-roadmap-progress-ui",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-project-progress-ui"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-dependency-visualization",
+      "title": "Dependency Visualization",
+      "kind": "MILESTONE",
+      "parent_id": "group-roadmap-progress-ui",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-achievement-tree"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "group-multi-domain-navigation",
+      "title": "Multi-Domain Navigation",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-domain-navigation-framework",
+      "title": "Domain Navigation Framework",
+      "kind": "MILESTONE",
+      "parent_id": "group-multi-domain-navigation",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-road-domain-ui",
+      "title": "Road Infrastructure UI",
+      "kind": "MILESTONE",
+      "parent_id": "group-multi-domain-navigation",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-domain-navigation-framework"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-rail-domain-ui",
+      "title": "Rail Infrastructure UI",
+      "kind": "MILESTONE",
+      "parent_id": "group-multi-domain-navigation",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-domain-navigation-framework"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-airport-domain-ui",
+      "title": "Airport Infrastructure UI",
+      "kind": "MILESTONE",
+      "parent_id": "group-multi-domain-navigation",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-domain-navigation-framework"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-energy-domain-ui",
+      "title": "Energy Infrastructure UI",
+      "kind": "MILESTONE",
+      "parent_id": "group-multi-domain-navigation",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-domain-navigation-framework"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "group-digital-twin-ui",
+      "title": "Digital Twin UI",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-geospatial-layer-system",
+      "title": "Geospatial Layer System",
+      "kind": "MILESTONE",
+      "parent_id": "group-digital-twin-ui",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-asset-spatial-explorer",
+      "title": "Asset Spatial Explorer",
+      "kind": "MILESTONE",
+      "parent_id": "group-digital-twin-ui",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "milestone-geospatial-layer-system"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-simulation-ui",
+      "title": "Simulation Interface",
+      "kind": "MILESTONE",
+      "parent_id": "group-digital-twin-ui",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "milestone-asset-spatial-explorer"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "group-operations-observability-ui",
+      "title": "Operations & Observability UI",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-research-operations-ui",
+      "title": "Research Operations UI",
+      "kind": "MILESTONE",
+      "parent_id": "group-operations-observability-ui",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-agent-operations-ui",
+      "title": "Agent Operations UI",
+      "kind": "MILESTONE",
+      "parent_id": "group-operations-observability-ui",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-quality-health-ui",
+      "title": "Quality & System Health UI",
+      "kind": "MILESTONE",
+      "parent_id": "group-operations-observability-ui",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-research-operations-ui",
+        "milestone-agent-operations-ui"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "group-global-ux",
+      "title": "Global UX",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-responsive-layout",
+      "title": "Responsive Layout",
+      "kind": "MILESTONE",
+      "parent_id": "group-global-ux",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-search-navigation",
+      "title": "Global Search & Navigation",
+      "kind": "MILESTONE",
+      "parent_id": "group-global-ux",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-performance-hardening",
+      "title": "Frontend Performance Hardening",
+      "kind": "MILESTONE",
+      "parent_id": "group-global-ux",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-responsive-layout",
+        "milestone-search-navigation"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "group-production-readiness",
+      "title": "Production Readiness",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-web-security-hardening",
+      "title": "Web Security Hardening",
+      "kind": "MILESTONE",
+      "parent_id": "group-production-readiness",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-web-observability",
+      "title": "Web Observability",
+      "kind": "MILESTONE",
+      "parent_id": "group-production-readiness",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-production-world-os-web",
+      "title": "Production World OS Web",
+      "kind": "MILESTONE",
+      "parent_id": "group-production-readiness",
+      "status": "NOT_STARTED",
+      "weight": 10.0,
+      "dependencies": [
+        "milestone-web-security-hardening",
+        "milestone-web-observability",
+        "milestone-performance-hardening",
+        "milestone-simulation-ui"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    }
+  ]
+}

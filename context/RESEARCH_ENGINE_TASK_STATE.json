@@ -1,0 +1,6 @@
+{
+  "milestone": "Research Engine Asset Extraction V0.3 ? BERTH vertical slice",
+  "objective": "Implement exactly one bounded BERTH Asset research extraction slice. BERTH is an existing PORT_CORE_V2 ASSET_TYPE, not a new identity kind. Reuse the existing UntrustedResearchAsset contract and existing PORT_CORE_V2 Assets pipeline. Extract raw BERTH asset facts only from official-source content, bind each asset only to an already trusted PORT_AREA or TERMINAL parent, preserve deterministic generate_asset_id(parent_entity_id, asset_type, asset_name), and map into the existing Assets contract. Add focused tests and only the smallest read-only runner integration needed for this BERTH vertical slice. Do not create TrustedBerthProfile, berth_id, core.berths, or a new berth identity system. Do not perform database, Supabase, Git, staging, promotion, or production writes.",
+  "previous_milestone": "Research Engine Maritime Child Extraction V0.3 ? gap inspection",
+  "status": "ACTIVE"
+}

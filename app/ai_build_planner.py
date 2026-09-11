@@ -51,22 +51,38 @@ WHY:
 """
 
 
-def plan_next_build(user_instruction: str) -> str:
-    state = load_live_state()
+def plan_next_build(
+    user_instruction: str,
+    *,
+    active_milestone: str | None = None,
+    active_objective: str | None = None,
+) -> str:
+    if (
+        active_milestone is not None
+        or active_objective is not None
+    ):
+        if not active_milestone or active_objective is None:
+            return NO_NEW_MILESTONE
 
-    milestone = state.current_milestone
-    objective = None
+        milestone = active_milestone
+        objective = active_objective
 
-    if has_active_milestone(state):
-        objective = planning_objective(state)
     else:
-        next_plan = planning_milestone(state)
+        state = load_live_state()
 
-        if next_plan is not None:
-            milestone, objective = next_plan
+        milestone = state.current_milestone
+        objective = None
 
-    if not milestone or objective is None:
-        return NO_NEW_MILESTONE
+        if has_active_milestone(state):
+            objective = planning_objective(state)
+        else:
+            next_plan = planning_milestone(state)
+
+            if next_plan is not None:
+                milestone, objective = next_plan
+
+        if not milestone or objective is None:
+            return NO_NEW_MILESTONE
 
     context = load_project_context()
 

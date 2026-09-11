@@ -17,10 +17,13 @@ from app.full_file_validator import (
     parse_candidate,
     sha256_bytes,
 )
+from app.workspace_registry import (
+    get_workspace_profile,
+    resolve_workspace_python_target,
+)
 
 
 ROOT = Path(__file__).resolve().parent.parent
-APP_ROOT = (ROOT / "app").resolve()
 TEMP_DIR = ROOT / "temp"
 QUEUE_DIR = ROOT / "pending_patches"
 
@@ -31,8 +34,9 @@ MAX_REVISIONS = 2
 class BuildPatchResult:
     patch_id: str
     goal: str
+    workspace_name: str
     target_file: str
-    original_sha256: str
+    original_sha256: str | None
     candidate_sha256: str
     candidate_file: str
     diff_file: str
@@ -70,38 +74,6 @@ def status_for_decision(decision: str) -> str:
     return "DRAFT"
 
 
-def resolve_target(target_file: str) -> Path:
-    target_path = (
-        ROOT / target_file
-    ).resolve()
-
-    try:
-        target_path.relative_to(
-            APP_ROOT
-        )
-    except ValueError as exc:
-        raise RuntimeError(
-            "Target escapes app directory."
-        ) from exc
-
-    if not target_path.exists():
-        raise RuntimeError(
-            "Target file does not exist."
-        )
-
-    if not target_path.is_file():
-        raise RuntimeError(
-            "Target path is not a regular file."
-        )
-
-    if target_path.suffix.lower() != ".py":
-        raise RuntimeError(
-            "Only existing Python files under app/ are supported."
-        )
-
-    return target_path
-
-
 def normalize_candidate(
     target_path: Path,
     new_content: str,
@@ -126,6 +98,11 @@ def normalize_candidate(
         .replace("\r", "\n")
     )
 
+    if original_bytes.endswith(b"\n"):
+        clean_content = clean_content.rstrip("\n") + "\n"
+    else:
+        clean_content = clean_content.rstrip("\n")
+
     clean_content = clean_content.replace(
         "\n",
         newline,
@@ -144,6 +121,24 @@ def normalize_candidate(
     return (
         original_bytes,
         candidate_bytes,
+    )
+
+
+def normalize_new_candidate(
+    new_content: str,
+) -> bytes:
+    clean_content = new_content.lstrip(
+        "\ufeff"
+    )
+
+    clean_content = (
+        clean_content
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+    )
+
+    return clean_content.encode(
+        "utf-8"
     )
 
 
@@ -178,6 +173,7 @@ def compile_candidate(
 
 def run_build_patch(
     goal: str,
+    workspace_name: str = "world-os-dev-agent",
 ) -> BuildPatchResult:
     clean_goal = goal.strip()
 
@@ -186,10 +182,17 @@ def run_build_patch(
             "Build goal is empty."
         )
 
+    workspace = get_workspace_profile(
+        workspace_name
+    )
+
+    canonical_workspace_name = workspace.name
+
     print("BUILD PATCH: generating candidate...", flush=True)
 
     raw_candidate = generate_candidate(
-        clean_goal
+        clean_goal,
+        canonical_workspace_name,
     )
 
     print("BUILD PATCH: candidate generated.", flush=True)
@@ -205,8 +208,32 @@ def run_build_patch(
         flush=True,
     )
 
-    target_path = resolve_target(
-        target_file
+    target_parts = tuple(
+        part
+        for part in target_file.split("/")
+        if part
+    )
+
+    is_existing_test_script = (
+        len(target_parts) == 2
+        and target_parts[0] == "scripts"
+        and target_parts[1].startswith("test_")
+        and target_parts[1].endswith(".py")
+    )
+
+    target_path = resolve_workspace_python_target(
+        canonical_workspace_name,
+        target_file,
+        must_exist=is_existing_test_script,
+        allow_existing_test_script=is_existing_test_script,
+    )
+
+    target_exists = target_path.exists()
+
+    format_version = (
+        "FULL_FILE_V2"
+        if target_exists
+        else "NEW_FILE_V2"
     )
 
     patch_id = str(
@@ -225,7 +252,7 @@ def run_build_patch(
 
     final_review = ""
     final_decision = "UNKNOWN"
-    final_original_sha = ""
+    final_original_sha: str | None = None
     final_candidate_sha = ""
     final_candidate_file: Path | None = None
     final_diff_file: Path | None = None
@@ -236,25 +263,39 @@ def run_build_patch(
         0,
         MAX_REVISIONS + 1,
     ):
-        (
-            original_bytes,
-            candidate_bytes,
-        ) = normalize_candidate(
-            target_path=target_path,
-            new_content=new_content,
-        )
+        if target_exists:
+            (
+                original_bytes,
+                candidate_bytes,
+            ) = normalize_candidate(
+                target_path=target_path,
+                new_content=new_content,
+            )
 
-        original_sha = sha256_bytes(
-            original_bytes
-        )
+            original_sha: str | None = sha256_bytes(
+                original_bytes
+            )
 
-        candidate_sha = sha256_bytes(
-            candidate_bytes
-        )
+            candidate_sha = sha256_bytes(
+                candidate_bytes
+            )
 
-        if candidate_sha == original_sha:
-            raise RuntimeError(
-                "Candidate contains no changes."
+            if candidate_sha == original_sha:
+                raise RuntimeError(
+                    "Candidate contains no changes."
+                )
+
+        else:
+            original_bytes = b""
+
+            original_sha = None
+
+            candidate_bytes = normalize_new_candidate(
+                new_content
+            )
+
+            candidate_sha = sha256_bytes(
+                candidate_bytes
             )
 
         candidate_file = (
@@ -306,8 +347,12 @@ def run_build_patch(
                     + compile_output
                 )
 
-            current_content = target_path.read_text(
-                encoding="utf-8-sig",
+            current_content = (
+                target_path.read_text(
+                    encoding="utf-8-sig",
+                )
+                if target_exists
+                else ""
             )
 
             print(
@@ -392,8 +437,12 @@ def run_build_patch(
         if revision_round >= MAX_REVISIONS:
             break
 
-        current_content = target_path.read_text(
-            encoding="utf-8-sig",
+        current_content = (
+            target_path.read_text(
+                encoding="utf-8-sig",
+            )
+            if target_exists
+            else ""
         )
 
         print(
@@ -445,6 +494,7 @@ def run_build_patch(
     result = BuildPatchResult(
         patch_id=patch_id,
         goal=clean_goal,
+        workspace_name=canonical_workspace_name,
         target_file=target_file,
         original_sha256=final_original_sha,
         candidate_sha256=final_candidate_sha,
@@ -459,7 +509,7 @@ def run_build_patch(
         semantic_review=final_review,
         revision_round=final_revision_round,
         status=status,
-        format_version="FULL_FILE_V2",
+        format_version=format_version,
     )
 
     queue_file = (

@@ -18,16 +18,27 @@ You are the full-file candidate generation layer of WORLD OS DEV AGENT.
 
 You receive:
 - WORLD OS project context
+- the active workspace name
 - a development goal
-- current contents of selected local Dev Agent source files
+- current contents of selected source files from that workspace
 
 Your task is to propose one minimal code change.
 
 IMPORTANT RULES:
 - Do not execute anything.
 - Do not modify files.
-- Change exactly one existing Python file.
-- Use only a file present in CURRENT SOURCE FILES.
+- Change exactly one Python file.
+- Prefer an existing file from CURRENT SOURCE FILES when the goal can be
+  satisfied safely by modifying that file.
+- If the development goal clearly requires a new module that does not yet
+  exist, you may instead propose exactly one new Python file.
+- A proposed new file must be inside app/ of the ACTIVE WORKSPACE.
+- Do not invent a second file, directory, migration, test file, database
+  object, or other side effect.
+- For a new file, use CURRENT SOURCE FILES only as read-only contracts and
+  architectural references; do not modify those referenced files.
+- Never select an unrelated existing file merely because the required new
+  target is absent from CURRENT SOURCE FILES.
 - Return the COMPLETE new contents of the target file.
 - Do not return a diff.
 - Do not use Markdown fences.
@@ -49,9 +60,16 @@ complete Python file contents
 """
 
 
-def generate_candidate(goal: str) -> str:
+def generate_candidate(
+    goal: str,
+    workspace_name: str = "world-os-dev-agent",
+) -> str:
     context = load_project_context()
-    sources = safe_read_selected_files(goal)
+
+    sources = safe_read_selected_files(
+        goal,
+        workspace_name,
+    )
 
     response = client.responses.create(
         model=MODEL,
@@ -60,6 +78,8 @@ def generate_candidate(goal: str) -> str:
         input=(
             "WORLD OS PROJECT CONTEXT:\n"
             f"{context}\n\n"
+            "ACTIVE WORKSPACE:\n"
+            f"{workspace_name}\n\n"
             "DEVELOPMENT GOAL:\n"
             f"{goal}\n\n"
             "CURRENT SOURCE FILES:\n"

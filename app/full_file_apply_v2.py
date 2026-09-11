@@ -9,11 +9,105 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from app.workspace_registry import (
+    get_workspace_profile,
+    require_verified_patch_workspace,
+    resolve_workspace_python_target,
+)
+
 
 ROOT = Path(__file__).resolve().parent.parent
 APP_ROOT = (ROOT / "app").resolve()
 QUEUE_DIR = ROOT / "pending_patches"
 BACKUP_DIR = ROOT / "backups"
+
+LEGACY_WORKSPACE_NAME = "world-os-dev-agent"
+
+
+def resolve_full_file_workspace_target(
+    data: dict,
+) -> tuple[str, str, Path]:
+    if "workspace_name" not in data:
+        workspace_name = LEGACY_WORKSPACE_NAME
+    else:
+        workspace_name = data["workspace_name"]
+
+    if (
+        not isinstance(workspace_name, str)
+        or not workspace_name.strip()
+    ):
+        raise RuntimeError(
+            "workspace_name must be a non-empty string."
+        )
+
+    workspace = get_workspace_profile(
+        workspace_name
+    )
+
+    canonical_workspace_name = workspace.name
+
+    require_verified_patch_workspace(
+        canonical_workspace_name
+    )
+
+    target_file = data.get(
+        "target_file"
+    )
+
+    if (
+        not isinstance(target_file, str)
+        or not target_file.strip()
+    ):
+        raise RuntimeError(
+            "target_file must be a non-empty string."
+        )
+
+    resolved_target = resolve_workspace_python_target(
+        canonical_workspace_name,
+        target_file,
+        must_exist=True,
+        allow_existing_test_script=True,
+    ).resolve()
+
+    try:
+        canonical_target_file = (
+            resolved_target
+            .relative_to(
+                workspace.path.resolve()
+            )
+            .as_posix()
+        )
+    except ValueError as exc:
+        raise RuntimeError(
+            "Resolved target escapes workspace."
+        ) from exc
+
+    is_app_target = (
+        canonical_target_file.startswith("app/")
+    )
+
+    is_existing_test_script = (
+        canonical_target_file.startswith("scripts/test_")
+        and canonical_target_file.endswith(".py")
+        and canonical_target_file.count("/") == 1
+    )
+
+    if not is_app_target and not is_existing_test_script:
+        raise RuntimeError(
+            "Target must be inside app/ or an explicitly allowed "
+            "existing scripts/test_*.py file."
+        )
+
+    if not canonical_target_file.endswith(".py"):
+        raise RuntimeError(
+            "Target must be a Python file."
+        )
+
+    return (
+        canonical_workspace_name,
+        canonical_target_file,
+        resolved_target,
+    )
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -59,6 +153,28 @@ def run_py_compile(
         encoding="utf-8",
         errors="replace",
     )
+
+
+def record_post_apply_progression(
+    data: dict,
+    *,
+    applied_sha256: str,
+) -> None:
+    if not applied_sha256:
+        raise RuntimeError(
+            "Post-apply progression requires applied SHA256."
+        )
+
+    data["post_apply"] = {
+        "validated": True,
+        "applied_sha256": applied_sha256,
+        "next_action": "CONTINUE_SAFELY",
+        "reason": (
+            "Applied source passed the existing SHA256 and py_compile "
+            "validation. Continue safely to determine the next bounded "
+            "development action."
+        ),
+    }
 
 
 def load_record(
@@ -123,35 +239,47 @@ def validate_target(
 
 
 def validate_new_target(
+    workspace_name: str,
     target_file: str,
-) -> Path:
-    normalized = target_file.replace(
-        "\\",
-        "/",
+) -> tuple[str, str, Path]:
+    workspace = get_workspace_profile(
+        workspace_name
     )
 
-    if not normalized.startswith("app/"):
+    canonical_workspace_name = workspace.name
+
+    require_verified_patch_workspace(
+        canonical_workspace_name
+    )
+
+    target = resolve_workspace_python_target(
+        canonical_workspace_name,
+        target_file,
+        must_exist=False,
+    ).resolve()
+
+    try:
+        canonical_target_file = (
+            target
+            .relative_to(
+                workspace.path.resolve()
+            )
+            .as_posix()
+        )
+    except ValueError as exc:
+        raise RuntimeError(
+            "NEW_FILE_V2 target escapes workspace."
+        ) from exc
+
+    if not canonical_target_file.startswith("app/"):
         raise RuntimeError(
             "NEW_FILE_V2 target must be inside app/."
         )
 
-    if not normalized.endswith(".py"):
+    if not canonical_target_file.endswith(".py"):
         raise RuntimeError(
             "NEW_FILE_V2 target must be a Python file."
         )
-
-    target = (
-        ROOT / normalized
-    ).resolve()
-
-    try:
-        target.relative_to(
-            APP_ROOT
-        )
-    except ValueError as exc:
-        raise RuntimeError(
-            "NEW_FILE_V2 target escapes app directory."
-        ) from exc
 
     if target.exists():
         raise RuntimeError(
@@ -169,7 +297,11 @@ def validate_new_target(
             "NEW_FILE_V2 target parent is not a directory."
         )
 
-    return target
+    return (
+        canonical_workspace_name,
+        canonical_target_file,
+        target,
+    )
 
 
 def rollback_owned_new_target(
@@ -271,8 +403,35 @@ def apply_new_file_v2(
             "target_file is missing."
         )
 
-    target = validate_new_target(
-        target_file
+    workspace_name = data.get(
+        "workspace_name"
+    )
+
+    if workspace_name is None:
+        workspace_name = LEGACY_WORKSPACE_NAME
+    elif (
+        not isinstance(workspace_name, str)
+        or not workspace_name.strip()
+    ):
+        raise RuntimeError(
+            "workspace_name must be a non-empty string."
+        )
+
+    (
+        canonical_workspace_name,
+        canonical_target_file,
+        target,
+    ) = validate_new_target(
+        workspace_name,
+        target_file,
+    )
+
+    data["workspace_name"] = (
+        canonical_workspace_name
+    )
+
+    data["target_file"] = (
+        canonical_target_file
     )
 
     candidate_file_value = data.get(
@@ -432,6 +591,11 @@ def apply_new_file_v2(
             datetime.now(timezone.utc).isoformat()
         )
 
+        record_post_apply_progression(
+            data,
+            applied_sha256=applied_sha,
+        )
+
         atomic_write_json(
             queue_file,
             data,
@@ -578,17 +742,24 @@ def main() -> None:
             "Patch status must be APPROVED."
         )
 
-    target_file = data.get(
-        "target_file"
+    (
+        canonical_workspace_name,
+        canonical_target_file,
+        target,
+    ) = resolve_full_file_workspace_target(
+        data
     )
 
-    if not target_file:
-        raise RuntimeError(
-            "target_file is missing."
-        )
+    data["workspace_name"] = (
+        canonical_workspace_name
+    )
+    data["target_file"] = (
+        canonical_target_file
+    )
 
-    target = validate_target(
-        target_file
+    atomic_write_json(
+        queue_file,
+        data,
     )
 
     candidate_file_value = data.get(
@@ -747,6 +918,11 @@ def main() -> None:
         )
         data["applied_sha256"] = applied_sha
 
+        record_post_apply_progression(
+            data,
+            applied_sha256=applied_sha,
+        )
+
         try:
             atomic_write_json(
                 queue_file,
@@ -818,6 +994,10 @@ def main() -> None:
 
     print("PATCH ID:")
     print(data["patch_id"])
+    print()
+
+    print("WORKSPACE:")
+    print(data["workspace_name"])
     print()
 
     print("TARGET FILE:")

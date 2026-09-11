@@ -1,6 +1,6 @@
 {
-  "milestone": null,
-  "objective": null,
+  "milestone": "Developer Console V2.1 — Self-steering development and human-approved Research Engine development.",
+  "objective": "Make the Developer Console self-steering across bounded development steps so the user can operate primarily inside the Console without external prompt/result handoffs, then enable workspace-bound human-approved source development in world-os-research-engine while preserving explicit approval, SHA guards, backups, rollback, no autonomous Git writes, and no autonomous database or Supabase writes.",
   "previous_milestone": null,
-  "status": "NO_NEW_MILESTONE"
+  "status": "ACTIVE"
 }

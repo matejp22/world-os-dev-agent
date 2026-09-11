@@ -86,18 +86,22 @@ COMPLETE
 V1.5 STATUS:
 COMPLETE
 
-Current milestone:
-Developer Console V2.0 — Functional World OS Dev Agent.
-Current objective:
-Make the Developer Console the primary operating interface and complete the functional World OS Dev Agent contract so the agent can understand project mission, load persistent state, identify the correct next objective, inspect code, prepare and test changes, semantically review and queue changes, accept human approval, safely apply approved changes, update development state, resume after restart, and work across registered repositories under policy.
-Current objective status:
+V2.0 STATUS:
 COMPLETE
+
+Current milestone:
+Developer Console V2.1 — Self-steering development and human-approved Research Engine development.
+Current objective:
+Make the Developer Console self-steering across bounded development steps so the user can operate primarily inside the Console without external prompt/result handoffs, then enable workspace-bound human-approved source development in world-os-research-engine while preserving explicit approval, SHA guards, backups, rollback, no autonomous Git writes, and no autonomous database or Supabase writes.
+Current objective status:
+ACTIVE
 Immediate next objective:
 
 Next milestone:
 
 Next milestone objective:
 
+Safety constraints:
 Do not redesign FULL_FILE_V2.
 Do not enable World OS Research Engine writes.
 Do not weaken human approval boundaries.

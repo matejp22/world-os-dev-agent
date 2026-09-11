@@ -1,10 +1,12 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+import argparse
 import re
 import subprocess
 import sys
 from pathlib import Path
 
+from app.ai_build_planner import plan_next_build
 from app.build_patch_orchestrator import BuildPatchResult, run_build_patch
 from app.ci_awareness import inspect_ci_awareness
 from app.compile_checks import (
@@ -34,6 +36,264 @@ from app.workspace_registry import (
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 NO_NEW_MILESTONE = "NO_NEW_MILESTONE"
+
+
+def _extract_planned_objective(
+    planner_output: str,
+) -> str:
+    clean = planner_output.strip()
+
+    if clean == NO_NEW_MILESTONE:
+        raise RuntimeError(
+            "Build planner reported NO_NEW_MILESTONE."
+        )
+
+    match = re.fullmatch(
+        r"NEXT_OBJECTIVE:\s*\n"
+        r"(?P<objective>.+?)"
+        r"\n\nWHY:\s*\n"
+        r"(?P<why>.+)",
+        clean,
+        flags=re.DOTALL,
+    )
+
+    if match is None:
+        raise RuntimeError(
+            "Build planner output does not match the expected contract."
+        )
+
+    objective = match.group(
+        "objective"
+    ).strip()
+
+    if not objective:
+        raise RuntimeError(
+            "Build planner returned an empty objective."
+        )
+
+    return objective
+
+
+def _print_next_action_handoff(
+    *,
+    patch_result: BuildPatchResult,
+) -> None:
+    print("NEXT BOUNDED DEVELOPMENT ACTION")
+    print("-" * 72)
+
+    if patch_result.status == "READY_FOR_HUMAN_REVIEW":
+        print(
+            "Review the queued patch in the Developer Console. "
+            "Human approval is required before apply."
+        )
+    elif patch_result.status == "REJECTED":
+        print(
+            "Inspect the semantic rejection and revise only through "
+            "the bounded human-controlled workflow."
+        )
+    else:
+        print(
+            "Inspect the draft patch and validation result before any "
+            "further action."
+        )
+
+    print(
+        "No approval, apply, Git, database, or Supabase action "
+        "was performed."
+    )
+    print()
+
+
+def _build_canonical_bounded_goal(
+    *,
+    active_milestone: str,
+    persistent_objective: str,
+    selected_objective: str,
+    developer_instruction: str,
+    sanitized_investigation: str,
+    validation_summary: str,
+    rejected_objective: str | None = None,
+    semantic_rejection_review: str | None = None,
+) -> str:
+    required_values = {
+        "active milestone": active_milestone,
+        "persistent objective": persistent_objective,
+        "selected objective": selected_objective,
+    }
+
+    for label, value in required_values.items():
+        if not value.strip():
+            raise RuntimeError(
+                f"Canonical bounded goal requires {label}."
+            )
+
+    parts = [
+        "CANONICAL ACTIVE MILESTONE:",
+        active_milestone.strip(),
+        "",
+        "CANONICAL PERSISTENT MILESTONE OBJECTIVE:",
+        persistent_objective.strip(),
+        "",
+        "SELECTED BOUNDED OBJECTIVE:",
+        selected_objective.strip(),
+        "",
+        "DEVELOPER INSTRUCTION:",
+        developer_instruction.strip(),
+    ]
+
+    if rejected_objective is not None:
+        parts.extend(
+            [
+                "",
+                "PREVIOUSLY REJECTED OBJECTIVE:",
+                rejected_objective.strip(),
+            ]
+        )
+
+    if semantic_rejection_review is not None:
+        parts.extend(
+            [
+                "",
+                "SEMANTIC REJECTION REVIEW:",
+                semantic_rejection_review.strip(),
+            ]
+        )
+
+    parts.extend(
+        [
+            "",
+            "SANITIZED READ-ONLY INVESTIGATION OUTPUT:",
+            sanitized_investigation,
+            "",
+            validation_summary,
+            "",
+            "BOUNDARY:",
+            (
+                "Implement only the selected bounded objective inside the "
+                "canonical active milestone and persistent objective. "
+                "Do not reinterpret or escape those boundaries. "
+                "No approval, apply, Git write, database write, Supabase "
+                "write, or production write is authorized."
+            ),
+        ]
+    )
+
+    return "\n".join(parts)
+
+
+def _run_bounded_build_cycle(
+    *,
+    cycle_label: str,
+    planner_instruction: str,
+    active_milestone: str,
+    persistent_objective: str,
+    developer_instruction: str,
+    workspace_selection,
+    rejected_objective: str | None = None,
+    semantic_rejection_review: str | None = None,
+) -> tuple[str, BuildPatchResult]:
+    planner_output = plan_next_build(
+        planner_instruction,
+        active_milestone=active_milestone,
+        active_objective=persistent_objective,
+    )
+
+    selected_objective = _extract_planned_objective(
+        planner_output
+    )
+
+    print(f"{cycle_label} OBJECTIVE")
+    print("-" * 72)
+    print(selected_objective)
+    print()
+
+    print(f"{cycle_label} READ-ONLY INVESTIGATION")
+    print("-" * 72)
+
+    investigation_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "app.autonomous_runner",
+            "--goal",
+            selected_objective,
+            "--repo",
+            str(workspace_selection.workspace.path),
+        ],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+    investigation_output = "\n".join(
+        part
+        for part in (
+            investigation_result.stdout,
+            investigation_result.stderr,
+        )
+        if part
+    )
+
+    sanitized_investigation = sanitize_output(
+        investigation_output
+    )
+
+    if sanitized_investigation:
+        print(
+            sanitized_investigation.rstrip()
+        )
+
+    print()
+
+    if investigation_result.returncode != 0:
+        raise RuntimeError(
+            f"{cycle_label} investigation failed with "
+            f"return code {investigation_result.returncode}."
+        )
+
+    validation_summary = (
+        _run_v20_test_compile_ci_validation(
+            workspace_selection
+        )
+    )
+
+    bounded_goal = _build_canonical_bounded_goal(
+        active_milestone=active_milestone,
+        persistent_objective=persistent_objective,
+        selected_objective=selected_objective,
+        developer_instruction=developer_instruction,
+        sanitized_investigation=sanitized_investigation,
+        validation_summary=validation_summary,
+        rejected_objective=rejected_objective,
+        semantic_rejection_review=semantic_rejection_review,
+    )
+
+    print(f"{cycle_label} BUILD PATCH")
+    print("-" * 72)
+
+    patch_result = run_build_patch(
+        bounded_goal,
+        workspace_name=workspace_selection.workspace.name,
+    )
+
+    _validate_build_patch_result(
+        patch_result
+    )
+
+    _print_patch_metadata(
+        patch_result
+    )
+
+    _print_next_action_handoff(
+        patch_result=patch_result,
+    )
+
+    return (
+        selected_objective,
+        patch_result,
+    )
 
 
 def configure_utf8_output() -> None:
@@ -72,9 +332,12 @@ def _validate_build_patch_result(
                 f"Build patch result is missing field: {field}"
             )
 
-    if result.format_version != "FULL_FILE_V2":
+    if result.format_version not in {
+        "FULL_FILE_V2",
+        "NEW_FILE_V2",
+    }:
         raise RuntimeError(
-            "Build patch result is not FULL_FILE_V2."
+            "Build patch result has unsupported format_version."
         )
 
     if not result.patch_id:
@@ -87,9 +350,20 @@ def _validate_build_patch_result(
             "Build patch result is missing target_file."
         )
 
-    if not result.original_sha256:
+    if (
+        result.format_version == "FULL_FILE_V2"
+        and not result.original_sha256
+    ):
         raise RuntimeError(
-            "Build patch result is missing original_sha256."
+            "FULL_FILE_V2 build patch result is missing original_sha256."
+        )
+
+    if (
+        result.format_version == "NEW_FILE_V2"
+        and result.original_sha256 is not None
+    ):
+        raise RuntimeError(
+            "NEW_FILE_V2 build patch result must not have original_sha256."
         )
 
     if not result.candidate_sha256:
@@ -134,17 +408,9 @@ def _print_patch_metadata(
     print()
 
 
-def _print_workspace_context() -> None:
-    try:
-        selection = active_workspace_from_path(
-            PROJECT_ROOT
-        )
-    except Exception as exc:
-        print(
-            f"ACTIVE WORKSPACE RESOLUTION FAILED: {exc}"
-        )
-        raise
-
+def _print_workspace_context(
+    selection,
+) -> None:
     workspace = selection.workspace
 
     print("ACTIVE WORKSPACE")
@@ -192,11 +458,9 @@ def _print_workspace_context() -> None:
         )
 
 
-def _run_v20_test_compile_ci_validation() -> str:
-    workspace_selection = active_workspace_from_path(
-        PROJECT_ROOT
-    )
-
+def _run_v20_test_compile_ci_validation(
+    workspace_selection,
+) -> str:
     workspace = workspace_selection.workspace
 
     git_status = inspect_git_workspace_status(
@@ -445,8 +709,19 @@ def _run_v20_test_compile_ci_validation() -> str:
 
 def run_continue_milestone(
     developer_instruction: str,
+    target_repository: str | Path = PROJECT_ROOT,
 ) -> int:
     configure_utf8_output()
+
+    try:
+        workspace_selection = active_workspace_from_path(
+            target_repository
+        )
+    except Exception as exc:
+        print(
+            f"ACTIVE WORKSPACE RESOLUTION FAILED: {exc}"
+        )
+        return 1
 
     print("=" * 72)
     print("WORLD OS DEV AGENT - CONTINUE CURRENT MILESTONE")
@@ -458,11 +733,13 @@ def run_continue_milestone(
     print()
 
     print("TARGET REPOSITORY:")
-    print(PROJECT_ROOT)
+    print(workspace_selection.workspace.path)
     print()
 
     try:
-        _print_workspace_context()
+        _print_workspace_context(
+            workspace_selection
+        )
     except Exception:
         print(
             "Progression stopped safely. No task-state resolution, "
@@ -471,7 +748,9 @@ def run_continue_milestone(
         )
         return 1
 
-    resolution = load_resolved_task_state()
+    resolution = load_resolved_task_state(
+        workspace_selection.workspace.name
+    )
     state = resolution.state
 
     print("TASK STATE RESOLUTION")
@@ -504,7 +783,8 @@ def run_continue_milestone(
             return 1
 
         execution_result = execute_task_state_transition(
-            transition_plan
+            transition_plan,
+            workspace_name=workspace_selection.workspace.name,
         )
 
         if transition_plan.action == "PERSIST":
@@ -560,95 +840,40 @@ def run_continue_milestone(
         )
         return 1
 
-    objective = state.objective
+    persistent_objective = state.objective
+    active_milestone = state.milestone
 
-    print("SELECTED OBJECTIVE")
-    print("-" * 72)
-    print(objective)
-    print()
-
-    print("READ-ONLY INVESTIGATION")
-    print("-" * 72)
-
-    investigation_result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "app.autonomous_runner",
-            "--goal",
-            objective,
-            "--repo",
-            str(PROJECT_ROOT),
-        ],
-        cwd=PROJECT_ROOT,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
+    initial_planner_instruction = (
+        "Select exactly one small bounded development objective inside "
+        "the canonical active milestone and persistent milestone objective.\n\n"
+        "ACTIVE MILESTONE:\n"
+        f"{active_milestone}\n\n"
+        "PERSISTENT MILESTONE OBJECTIVE:\n"
+        f"{persistent_objective}\n\n"
+        "DEVELOPER INSTRUCTION:\n"
+        f"{developer_instruction}\n\n"
+        "The Developer instruction may narrow the work but cannot replace "
+        "the persistent objective or leave the active milestone."
     )
-
-    investigation_output = "\n".join(
-        part
-        for part in (
-            investigation_result.stdout,
-            investigation_result.stderr,
-        )
-        if part
-    )
-
-    sanitized_investigation = sanitize_output(
-        investigation_output
-    )
-
-    if sanitized_investigation:
-        print(
-            sanitized_investigation.rstrip()
-        )
-
-    print()
-
-    if investigation_result.returncode != 0:
-        print(
-            "CONTINUE MILESTONE INVESTIGATION: FAIL"
-        )
-        return investigation_result.returncode
 
     try:
-        v20_validation_summary = (
-            _run_v20_test_compile_ci_validation()
+        objective, patch_result = _run_bounded_build_cycle(
+            cycle_label="INITIAL",
+            planner_instruction=initial_planner_instruction,
+            active_milestone=active_milestone,
+            persistent_objective=persistent_objective,
+            developer_instruction=developer_instruction,
+            workspace_selection=workspace_selection,
         )
     except Exception as exc:
         print(
-            f"V2.0 TEST / COMPILE / CI VALIDATION FAILED: {exc}"
+            f"INITIAL BOUNDED BUILD CYCLE FAILED: {exc}"
         )
         print(
-            "Progression stopped safely. No patch generation, "
-            "approval, apply, Git write, or CI write was performed."
+            "Progression stopped safely. No approval, apply, Git write, "
+            "database write, Supabase write, or production write was performed."
         )
         return 1
-
-    enriched_goal = (
-        "Selected development objective:\n"
-        f"{objective}\n\n"
-        "Sanitized read-only investigation output:\n"
-        f"{sanitized_investigation}\n\n"
-        f"{v20_validation_summary}"
-    )
-
-    print("BUILD PATCH")
-    print("-" * 72)
-
-    patch_result = run_build_patch(
-        enriched_goal
-    )
-
-    _validate_build_patch_result(
-        patch_result
-    )
-
-    _print_patch_metadata(
-        patch_result
-    )
 
     if patch_result.status == "READY_FOR_HUMAN_REVIEW":
         print(
@@ -660,9 +885,86 @@ def run_continue_milestone(
     if patch_result.status == "REJECTED":
         print(
             "Patch was rejected by the build orchestrator. "
-            "No approval or apply action was performed."
+            "Starting one bounded self-steering recovery attempt."
         )
-        return 0
+        print()
+
+        recovery_instruction = (
+            "Select exactly one corrected or smaller bounded development "
+            "objective after semantic REJECT. Stay inside the same canonical "
+            "active milestone and persistent objective.\n\n"
+            "ACTIVE MILESTONE:\n"
+            f"{active_milestone}\n\n"
+            "PERSISTENT MILESTONE OBJECTIVE:\n"
+            f"{persistent_objective}\n\n"
+            "DEVELOPER INSTRUCTION:\n"
+            f"{developer_instruction}\n\n"
+            "REJECTED OBJECTIVE:\n"
+            f"{objective}\n\n"
+            "SEMANTIC REJECTION REVIEW:\n"
+            f"{patch_result.semantic_review}\n\n"
+            "Address the semantic rejection directly. Return one bounded "
+            "objective only."
+        )
+
+        try:
+            recovery_objective, recovery_patch_result = (
+                _run_bounded_build_cycle(
+                    cycle_label="SELF-STEERING REJECT RECOVERY",
+                    planner_instruction=recovery_instruction,
+                    active_milestone=active_milestone,
+                    persistent_objective=persistent_objective,
+                    developer_instruction=developer_instruction,
+                    workspace_selection=workspace_selection,
+                    rejected_objective=objective,
+                    semantic_rejection_review=patch_result.semantic_review,
+                )
+            )
+        except Exception as exc:
+            print(
+                f"SELF-STEERING REJECT RECOVERY FAILED: {exc}"
+            )
+            print(
+                "Progression stopped safely. No approval, apply, Git write, "
+                "database write, Supabase write, or production write "
+                "was performed."
+            )
+            return 1
+
+        if (
+            recovery_objective.strip().casefold()
+            == objective.strip().casefold()
+        ):
+            print(
+                "SELF-STEERING REJECT RECOVERY FAILED: "
+                "planner returned the same rejected objective."
+            )
+            print(
+                "Progression stopped safely. No approval or apply action "
+                "was performed."
+            )
+            return 1
+
+        if (
+            recovery_patch_result.status
+            == "READY_FOR_HUMAN_REVIEW"
+        ):
+            print(
+                "Self-steering recovery produced a patch ready for explicit "
+                "human review. No approval or apply action was performed."
+            )
+            return 0
+
+        print(
+            "SELF-STEERING REJECT RECOVERY FAILED: "
+            "the single recovery cycle did not produce a "
+            "READY_FOR_HUMAN_REVIEW patch."
+        )
+        print(
+            "Progression stopped safely. No approval, apply, Git write, "
+            "database write, Supabase write, or production write was performed."
+        )
+        return 1
 
     print(
         "Patch remains in DRAFT status. "
@@ -672,12 +974,20 @@ def run_continue_milestone(
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--repo",
+        default=str(PROJECT_ROOT),
+    )
+    args = parser.parse_args()
+
     instruction = (
         "Continue building the current World OS milestone."
     )
 
     raise SystemExit(
         run_continue_milestone(
-            instruction
+            instruction,
+            target_repository=args.repo,
         )
     )

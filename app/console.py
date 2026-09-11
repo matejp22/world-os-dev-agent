@@ -1,5 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -177,8 +178,6 @@ def apply_full_file_patch(
     )
 
 
-
-
 def apply_patch_by_format(
     patch_id: str,
     format_version: str,
@@ -201,6 +200,65 @@ def apply_patch_by_format(
             f"Unsupported patch format: {format_version}"
         ),
     )
+
+
+CONTINUE_SAFELY_TIMEOUT_SECONDS = 600
+
+
+def run_continue_safely(
+    workspace: ActiveWorkspaceSelection,
+) -> subprocess.CompletedProcess[str]:
+    command = [
+        sys.executable,
+        "-m",
+        "app.continue_milestone_runner",
+        "--repo",
+        str(workspace.workspace.path),
+    ]
+
+    try:
+        return subprocess.run(
+            command,
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=CONTINUE_SAFELY_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout or ""
+        stderr = exc.stderr or ""
+
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode(
+                "utf-8",
+                errors="replace",
+            )
+
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode(
+                "utf-8",
+                errors="replace",
+            )
+
+        timeout_message = (
+            "Continue safely timed out after "
+            f"{CONTINUE_SAFELY_TIMEOUT_SECONDS} seconds. "
+            "The bounded run was stopped without approval, apply, "
+            "Git, database, or Supabase writes."
+        )
+
+        return subprocess.CompletedProcess(
+            args=command,
+            returncode=124,
+            stdout=stdout,
+            stderr=(
+                stderr.rstrip()
+                + ("\n" if stderr.strip() else "")
+                + timeout_message
+            ),
+        )
 
 
 def render_workspace_context(
@@ -309,7 +367,7 @@ def render_workspace_context(
     )
 
     st.markdown(
-        "**Git action plan preview \u2014 NON-EXECUTING**"
+        "**Git action plan preview — NON-EXECUTING**"
     )
 
     if git_status.conflicted:
@@ -383,7 +441,7 @@ console_version = resolve_console_version()
 
 st.caption(
     f"Developer Console {console_version} "
-    "\u2014 SAFE EXECUTION + PATCH CONTROL"
+    "— SAFE EXECUTION + PATCH CONTROL"
 )
 
 st.info(
@@ -392,10 +450,84 @@ st.info(
     "human confirmation in Patch review."
 )
 
+workspace_names = registered_workspace_names()
+
+if not workspace_names:
+    st.error(
+        "No registered workspaces are available."
+    )
+    st.stop()
+
+default_workspace = "world-os-dev-agent"
+workspace_state_key = "active_workspace_name"
+
+if (
+    workspace_state_key not in st.session_state
+    or st.session_state[workspace_state_key]
+    not in workspace_names
+):
+    if default_workspace in workspace_names:
+        st.session_state[workspace_state_key] = (
+            default_workspace
+        )
+    else:
+        st.session_state[workspace_state_key] = (
+            workspace_names[0]
+        )
+
+
+def _on_active_workspace_change() -> None:
+    selected = st.session_state.get(
+        workspace_state_key
+    )
+
+    if selected not in workspace_names:
+        st.session_state[workspace_state_key] = (
+            default_workspace
+            if default_workspace in workspace_names
+            else workspace_names[0]
+        )
+
+    st.session_state.pop(
+        "workspace_bound_task_resolution",
+        None,
+    )
+
+    st.rerun()
+
+
+st.selectbox(
+    "Active workspace",
+    options=workspace_names,
+    key=workspace_state_key,
+    on_change=_on_active_workspace_change,
+    help=(
+        "Select the registered repository used for task-state resolution, "
+        "workspace inspection, safe investigation, and Continue current milestone."
+    ),
+)
+
+selected_workspace_name = st.session_state[
+    workspace_state_key
+]
+
+try:
+    selected_workspace = select_active_workspace(
+        selected_workspace_name
+    )
+except Exception as exc:
+    st.error(
+        "Workspace selection failed closed: "
+        f"{type(exc).__name__}: {exc}"
+    )
+    st.stop()
+
 st.subheader("Development task state")
 
 try:
-    task_resolution = load_resolved_task_state()
+    task_resolution = load_resolved_task_state(
+        selected_workspace_name
+    )
 except Exception as exc:
     task_resolution = None
     st.error(
@@ -425,28 +557,6 @@ if task_resolution is not None:
     st.markdown("**Previous milestone**")
     st.write(task_state.previous_milestone or "<none>")
 
-    if task_resolution.decision == "CONFLICT":
-        st.error(
-            "Persistent task state conflicts with LIVE_STATE. "
-            "Automatic progression is refused."
-        )
-    elif task_resolution.decision == "ADVANCE_FROM_LIVE_STATE":
-        st.warning(
-            "LIVE_STATE declares a valid milestone handoff. "
-            "This resolution is eligible for deterministic task-state "
-            "persistence when Continue Current Milestone runs. "
-            "Source-code patch approval and apply remain explicitly "
-            "human controlled."
-        )
-    elif task_resolution.decision == "INITIALIZE_FROM_LIVE_STATE":
-        st.info(
-            "No persisted task state exists. "
-            "This resolution is eligible for deterministic task-state "
-            "persistence when Continue Current Milestone runs. "
-            "Source-code patch approval and apply remain explicitly "
-            "human controlled."
-        )
-
 st.subheader("Milestone handoff")
 
 try:
@@ -454,8 +564,6 @@ try:
         raise RuntimeError(
             "Canonical LIVE_STATE.md is missing."
         )
-
-    import hashlib
 
     live_state_sha256 = hashlib.sha256(
         LIVE_STATE_PATH.read_bytes()
@@ -620,44 +728,6 @@ st.divider()
 
 st.subheader("Workspace target")
 
-workspace_names = registered_workspace_names()
-
-if not workspace_names:
-    st.error(
-        "No registered workspaces are available."
-    )
-    st.stop()
-
-default_workspace = "world-os-dev-agent"
-
-if default_workspace in workspace_names:
-    default_workspace_index = workspace_names.index(
-        default_workspace
-    )
-else:
-    default_workspace_index = 0
-
-selected_workspace_name = st.selectbox(
-    "Active workspace",
-    options=workspace_names,
-    index=default_workspace_index,
-    help=(
-        "Select the registered repository used for workspace inspection "
-        "and Run safe investigation."
-    ),
-)
-
-try:
-    selected_workspace = select_active_workspace(
-        selected_workspace_name
-    )
-except Exception as exc:
-    st.error(
-        "Workspace selection failed closed: "
-        f"{type(exc).__name__}: {exc}"
-    )
-    st.stop()
-
 render_workspace_context(
     selected_workspace
 )
@@ -670,8 +740,9 @@ if not selected_workspace.writable_via_dev_agent:
     )
 
 st.caption(
-    "Continue current milestone remains a World OS Dev Agent "
-    "control-plane operation and is not retargeted by this selector."
+    "Development task state and Continue current milestone are bound "
+    "to the selected workspace. Source changes remain subject to that "
+    "workspace's registered access policy and explicit human approval."
 )
 
 st.divider()
@@ -711,22 +782,11 @@ with tab_run:
             st.stop()
 
         if continue_clicked:
-            command = [
-                sys.executable,
-                "-m",
-                "app.continue_milestone_runner",
-            ]
-
             with st.spinner(
                 "World OS Dev Agent is continuing the current milestone..."
             ):
-                result = subprocess.run(
-                    command,
-                    cwd=ROOT,
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
+                result = run_continue_safely(
+                    selected_workspace
                 )
 
             stdout = result.stdout.strip()
@@ -1147,6 +1207,164 @@ with tab_patches:
                     st.success(
                         "Patch already applied."
                     )
+
+                    post_apply = data.get(
+                        "post_apply"
+                    )
+
+                    if isinstance(
+                        post_apply,
+                        dict,
+                    ):
+                        post_apply_validated = (
+                            post_apply.get(
+                                "validated"
+                            )
+                            is True
+                        )
+
+                        post_apply_next_action = str(
+                            post_apply.get(
+                                "next_action"
+                            )
+                            or ""
+                        ).strip().upper()
+
+                        post_apply_reason = str(
+                            post_apply.get(
+                                "reason"
+                            )
+                            or ""
+                        ).strip()
+
+                        if (
+                            post_apply_validated
+                            and post_apply_next_action
+                            == "CONTINUE_SAFELY"
+                        ):
+                            st.markdown(
+                                "**Next bounded development action**"
+                            )
+
+                            if post_apply_reason:
+                                st.info(
+                                    post_apply_reason
+                                )
+                            else:
+                                st.info(
+                                    "The applied patch passed post-apply "
+                                    "validation. Continue safely to determine "
+                                    "the next bounded development action."
+                                )
+
+                            continue_after_apply_clicked = st.button(
+                                "Continue safely",
+                                key=(
+                                    "post-apply-continue-"
+                                    f"{patch_id}"
+                                ),
+                                type="primary",
+                            )
+
+                            if continue_after_apply_clicked:
+                                with st.spinner(
+                                    "World OS Dev Agent is determining "
+                                    "the next bounded development action..."
+                                ):
+                                    continue_result = (
+                                        run_continue_safely(
+                                            selected_workspace
+                                        )
+                                    )
+
+                                continue_stdout = (
+                                    continue_result.stdout.strip()
+                                )
+
+                                continue_stderr = (
+                                    continue_result.stderr.strip()
+                                )
+
+                                if continue_result.returncode == 0:
+                                    st.success(
+                                        "Continue safely completed."
+                                    )
+                                else:
+                                    st.error(
+                                        "Continue safely failed with "
+                                        f"exit code "
+                                        f"{continue_result.returncode}."
+                                    )
+
+                                parsed_continue = (
+                                    parse_continue_milestone_output(
+                                        continue_stdout
+                                    )
+                                )
+
+                                if parsed_continue.objective:
+                                    st.markdown(
+                                        "**Selected objective**"
+                                    )
+                                    st.write(
+                                        parsed_continue.objective
+                                    )
+
+                                if parsed_continue.next_objective:
+                                    st.markdown(
+                                        "**Next objective**"
+                                    )
+                                    st.write(
+                                        parsed_continue.next_objective
+                                    )
+
+                                if parsed_continue.next_action:
+                                    st.write(
+                                        "**Next action:** "
+                                        f"{parsed_continue.next_action}"
+                                    )
+
+                                if parsed_continue.patch_id:
+                                    st.write(
+                                        "**Patch ID:** "
+                                        f"{parsed_continue.patch_id}"
+                                    )
+
+                                if parsed_continue.target_file:
+                                    st.write(
+                                        "**Target file:** "
+                                        f"{parsed_continue.target_file}"
+                                    )
+
+                                if parsed_continue.status:
+                                    st.write(
+                                        "**Status:** "
+                                        f"{parsed_continue.status}"
+                                    )
+
+                                with st.expander(
+                                    "Show Continue safely output"
+                                ):
+                                    st.code(
+                                        continue_stdout
+                                        or "<no stdout>",
+                                        language="text",
+                                    )
+
+                                if continue_stderr:
+                                    with st.expander(
+                                        "Show Continue safely stderr"
+                                    ):
+                                        st.code(
+                                            continue_stderr,
+                                            language="text",
+                                        )
+
+                        elif not post_apply_validated:
+                            st.warning(
+                                "Post-apply progression metadata exists, "
+                                "but validation is not confirmed."
+                            )
 
                 elif status == "ROLLED_BACK":
                     st.warning(

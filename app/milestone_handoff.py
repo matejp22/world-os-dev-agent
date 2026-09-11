@@ -74,6 +74,89 @@ def roadmap_has_explicit_milestone(
     )
 
 
+def roadmap_milestone_versions(
+    roadmap_text: str,
+) -> tuple[str, ...]:
+    pattern = re.compile(
+        r"^##\s+(V\d+(?:\.\d+)*)\b",
+        flags=re.MULTILINE,
+    )
+
+    versions = tuple(
+        match.group(1)
+        for match in pattern.finditer(
+            roadmap_text
+        )
+    )
+
+    if len(versions) != len(
+        set(versions)
+    ):
+        raise RuntimeError(
+            "ROADMAP contains duplicate milestone versions."
+        )
+
+    return versions
+
+
+def roadmap_expected_successor(
+    roadmap_text: str,
+    current_version: str,
+) -> str | None:
+    versions = roadmap_milestone_versions(
+        roadmap_text
+    )
+
+    matches = [
+        index
+        for index, version in enumerate(
+            versions
+        )
+        if version == current_version
+    ]
+
+    if len(matches) != 1:
+        return None
+
+    index = matches[0]
+
+    if index + 1 >= len(versions):
+        return None
+
+    return versions[
+        index + 1
+    ]
+
+
+def roadmap_expected_predecessor(
+    roadmap_text: str,
+    current_version: str,
+) -> str | None:
+    versions = roadmap_milestone_versions(
+        roadmap_text
+    )
+
+    matches = [
+        index
+        for index, version in enumerate(
+            versions
+        )
+        if version == current_version
+    ]
+
+    if len(matches) != 1:
+        return None
+
+    index = matches[0]
+
+    if index == 0:
+        return None
+
+    return versions[
+        index - 1
+    ]
+
+
 def build_handoff_plan(
     expected_live_state_sha256: str | None = None,
     live_state_path: Path = LIVE_STATE_PATH,
@@ -103,8 +186,21 @@ def build_handoff_plan(
         encoding="utf-8-sig"
     )
 
+    current_version = current_milestone_version(
+        state
+    )
+
     next_version = milestone_version(
         state.next_milestone
+    )
+
+    expected_successor = (
+        roadmap_expected_successor(
+            roadmap_text,
+            current_version,
+        )
+        if current_version
+        else None
     )
 
     next_defined = (
@@ -148,7 +244,7 @@ def build_handoff_plan(
             reason="Current milestone is missing.",
         )
 
-    if current_milestone_version(state) is None:
+    if current_version is None:
         return MilestoneHandoffPlan(
             allowed=False,
             target_file=EXPECTED_TARGET,
@@ -219,6 +315,38 @@ def build_handoff_plan(
             reason=(
                 "Next milestone is not explicitly defined "
                 "as a ROADMAP milestone."
+            ),
+        )
+
+    if expected_successor is None:
+        return MilestoneHandoffPlan(
+            allowed=False,
+            target_file=EXPECTED_TARGET,
+            live_state_sha256=live_sha,
+            current_milestone=state.current_milestone,
+            current_objective_status=state.current_objective_status,
+            next_milestone=state.next_milestone,
+            next_milestone_objective=state.next_milestone_objective,
+            next_milestone_defined_in_roadmap=True,
+            reason=(
+                "ROADMAP does not define a deterministic successor "
+                "for the current milestone."
+            ),
+        )
+
+    if next_version != expected_successor:
+        return MilestoneHandoffPlan(
+            allowed=False,
+            target_file=EXPECTED_TARGET,
+            live_state_sha256=live_sha,
+            current_milestone=state.current_milestone,
+            current_objective_status=state.current_objective_status,
+            next_milestone=state.next_milestone,
+            next_milestone_objective=state.next_milestone_objective,
+            next_milestone_defined_in_roadmap=True,
+            reason=(
+                "Declared next milestone is not the immediate "
+                "ROADMAP successor of the current milestone."
             ),
         )
 

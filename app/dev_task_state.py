@@ -13,6 +13,11 @@ from app.live_state import (
     load_live_state,
     planning_objective,
 )
+from app.milestone_handoff import (
+    ROADMAP_PATH,
+    milestone_version,
+    roadmap_expected_predecessor,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -21,6 +26,12 @@ DEV_TASK_STATE_PATH = (
     PROJECT_ROOT
     / "context"
     / "DEV_TASK_STATE.json"
+)
+
+RESEARCH_ENGINE_TASK_STATE_PATH = (
+    PROJECT_ROOT
+    / "context"
+    / "RESEARCH_ENGINE_TASK_STATE.json"
 )
 
 TaskStatus = Literal[
@@ -353,6 +364,7 @@ def plan_task_state_transition(
 
 def execute_task_state_transition(
     plan: TaskStateTransitionPlan,
+    workspace_name: str | None = None,
 ) -> TaskStateTransitionExecutionResult:
     validate_task_state(
         plan.state
@@ -360,7 +372,8 @@ def execute_task_state_transition(
 
     if plan.action == "PERSIST":
         save_task_state(
-            plan.state
+            plan.state,
+            workspace_name=workspace_name,
         )
 
         return TaskStateTransitionExecutionResult(
@@ -388,6 +401,60 @@ def execute_task_state_transition(
     raise RuntimeError(
         f"Unsupported task-state transition action: {plan.action}"
     )
+
+
+def _is_verified_no_new_to_active_handoff(
+    live_state: LiveState,
+    derived: DevTaskState,
+    persisted_state: DevTaskState,
+) -> bool:
+    if persisted_state.status != "NO_NEW_MILESTONE":
+        return False
+
+    if derived.status != "ACTIVE":
+        return False
+
+    if live_state.current_objective_status != "ACTIVE":
+        return False
+
+    if live_state.next_milestone is not None:
+        return False
+
+    if live_state.next_milestone_objective is not None:
+        return False
+
+    if derived.milestone is None:
+        return False
+
+    current_version = milestone_version(
+        derived.milestone
+    )
+
+    if current_version is None:
+        return False
+
+    if not ROADMAP_PATH.exists() or not ROADMAP_PATH.is_file():
+        return False
+
+    roadmap_text = ROADMAP_PATH.read_text(
+        encoding="utf-8-sig"
+    )
+
+    try:
+        predecessor = roadmap_expected_predecessor(
+            roadmap_text,
+            current_version,
+        )
+    except RuntimeError:
+        return False
+
+    if predecessor is None:
+        return False
+
+    if predecessor not in live_state.completed_milestones:
+        return False
+
+    return True
 
 
 def resolve_task_state(
@@ -464,6 +531,16 @@ def resolve_task_state(
             state=derived,
         )
 
+    if _is_verified_no_new_to_active_handoff(
+        live_state,
+        derived,
+        persisted_state,
+    ):
+        return ResumeResolution(
+            decision="RECONCILE_AFTER_HANDOFF",
+            state=derived,
+        )
+
     return ResumeResolution(
         decision="CONFLICT",
         state=persisted_state,
@@ -496,13 +573,37 @@ def load_task_state(
 
 
 def load_resolved_task_state(
+    workspace_name: str | None = None,
 ) -> ResumeResolution:
-    live_state = load_live_state()
-    persisted_state = load_task_state()
+    if workspace_name in {
+        None,
+        "world-os-dev-agent",
+    }:
+        live_state = load_live_state()
+        persisted_state = load_task_state()
 
-    return resolve_task_state(
-        live_state,
-        persisted_state,
+        return resolve_task_state(
+            live_state,
+            persisted_state,
+        )
+
+    if workspace_name == "world-os-research-engine":
+        persisted_state = load_task_state(
+            RESEARCH_ENGINE_TASK_STATE_PATH
+        )
+
+        if persisted_state is None:
+            raise RuntimeError(
+                "Research Engine task state is not initialized."
+            )
+
+        return ResumeResolution(
+            decision="RESUME_PERSISTED",
+            state=persisted_state,
+        )
+
+    raise ValueError(
+        f"Unsupported task-state workspace: {workspace_name!r}"
     )
 
 
@@ -524,22 +625,37 @@ def serialize_task_state(
 
 def save_task_state(
     state: DevTaskState,
+    workspace_name: str | None = None,
 ) -> None:
     validate_task_state(
         state
     )
 
-    target = DEV_TASK_STATE_PATH.resolve()
-
-    expected_target = (
-        PROJECT_ROOT
-        / "context"
-        / "DEV_TASK_STATE.json"
-    ).resolve()
+    if workspace_name in {
+        None,
+        "world-os-dev-agent",
+    }:
+        target = DEV_TASK_STATE_PATH.resolve()
+        expected_target = (
+            PROJECT_ROOT
+            / "context"
+            / "DEV_TASK_STATE.json"
+        ).resolve()
+    elif workspace_name == "world-os-research-engine":
+        target = RESEARCH_ENGINE_TASK_STATE_PATH.resolve()
+        expected_target = (
+            PROJECT_ROOT
+            / "context"
+            / "RESEARCH_ENGINE_TASK_STATE.json"
+        ).resolve()
+    else:
+        raise ValueError(
+            f"Unsupported task-state workspace: {workspace_name!r}"
+        )
 
     if target != expected_target:
         raise RuntimeError(
-            "DEV_TASK_STATE write target is not allowed."
+            "Task-state write target is not allowed."
         )
 
     if not target.parent.exists():
