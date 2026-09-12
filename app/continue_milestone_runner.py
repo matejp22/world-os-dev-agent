@@ -20,6 +20,7 @@ from app.dev_task_state import (
 )
 from app.git_workspace_status import inspect_git_workspace_status
 from app.output_sanitizer import sanitize_output
+from app.production_autonomy_gate import evaluate_production_autonomy
 from app.test_execution import (
     BLOCKED_TEST_IDS,
     execute_registered_tests,
@@ -837,6 +838,64 @@ def run_continue_milestone(
         print(
             "TASK STATE INVALID: active task state requires "
             "a non-empty milestone and objective."
+        )
+        return 1
+
+    try:
+        production_gate = evaluate_production_autonomy(
+            control_workspace_name="world-os-dev-agent",
+            target_workspace_name=workspace_selection.workspace.name,
+            task_state=state,
+        )
+    except Exception as exc:
+        print(
+            f"PRODUCTION AUTONOMY GATE FAILED: {exc}"
+        )
+        print(
+            "Progression stopped safely. No investigation, patch generation, "
+            "approval, apply, Git write, database write, Supabase write, "
+            "or production write was performed."
+        )
+        return 1
+
+    print("PRODUCTION AUTONOMY GATE")
+    print("-" * 72)
+    print(f"Decision: {production_gate.decision}")
+    print(f"Reason: {production_gate.reason}")
+
+    if production_gate.task_plan is not None:
+        print(
+            f"Task plan: {production_gate.task_plan.decision}"
+        )
+
+    if production_gate.coordination_plan is not None:
+        print(
+            f"Coordination: "
+            f"{production_gate.coordination_plan.decision}"
+        )
+
+    print()
+
+    if production_gate.decision == "BLOCKED":
+        print(
+            "Production autonomy gate blocked progression. No investigation, "
+            "patch generation, approval, apply, Git write, database write, "
+            "Supabase write, or production write was performed."
+        )
+        return 1
+
+    if production_gate.decision == "NO_TASK":
+        print(
+            "Production autonomy gate reports no executable task. No "
+            "investigation, patch generation, approval, apply, Git write, "
+            "database write, Supabase write, or production write was performed."
+        )
+        return 0
+
+    if production_gate.decision != "PROCEED":
+        print(
+            "Production autonomy gate returned an unsupported decision. "
+            "Progression stopped safely."
         )
         return 1
 

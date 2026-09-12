@@ -27,6 +27,9 @@ from app.live_state_handoff_apply import (
 from app.milestone_handoff import (
     build_handoff_plan,
 )
+from app.roadmap_panel import (
+    render_world_os_roadmap_panel,
+)
 from app.workspace_registry import (
     ActiveWorkspaceSelection,
     inspect_workspace_structure,
@@ -747,13 +750,30 @@ st.caption(
 
 st.divider()
 
-tab_run, tab_history, tab_patches = st.tabs(
+tab_run, tab_roadmap, tab_history, tab_patches = st.tabs(
     [
         "Run",
+        "Roadmap",
         "Session history",
         "Patch review",
     ]
 )
+
+
+with tab_roadmap:
+    render_world_os_roadmap_panel(
+        master_roadmap_path=(
+            ROOT
+            / "context"
+            / "master_roadmaps"
+            / "world-os-2050.json"
+        ),
+        project_workspaces={
+            "world-os-dev-agent": "world-os-dev-agent",
+            "world-os-research-engine": "world-os-research-engine",
+            "world-os-web": "world-os-web",
+        },
+    )
 
 
 with tab_run:
