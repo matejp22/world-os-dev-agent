@@ -12,7 +12,12 @@ from app.test_registry import (
 )
 
 
-EXECUTION_WORKSPACE = "world-os-dev-agent"
+EXECUTION_WORKSPACES = frozenset(
+    {
+        "world-os-dev-agent",
+        "world-os-research-engine",
+    }
+)
 
 BLOCKED_TEST_IDS = frozenset(
     {
@@ -61,9 +66,9 @@ def _validate_registry(
             "Test registry must be inspected before execution."
         )
 
-    if registry.workspace_name != EXECUTION_WORKSPACE:
+    if registry.workspace_name not in EXECUTION_WORKSPACES:
         raise RuntimeError(
-            "Test execution is restricted to world-os-dev-agent."
+            "Test execution is restricted to approved execution workspaces."
         )
 
     workspace = Path(
@@ -313,6 +318,7 @@ def execute_registered_tests(
         executed=True,
         reason=(
             "Executed only explicitly registered and execution-eligible "
-            "world-os-dev-agent tests. No arbitrary command string was accepted."
+            "tests from approved execution workspaces. "
+            "No arbitrary command string was accepted."
         ),
     )

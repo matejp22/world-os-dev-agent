@@ -23,6 +23,7 @@ class TestRegistryEntry:
     style: TestStyle
     test_functions: tuple[str, ...]
     imported_app_modules: tuple[str, ...]
+    declared_focused_modules: tuple[str, ...]
     has_main_guard: bool
     compile_target: str
     execution_validated: bool
@@ -123,6 +124,86 @@ def _imported_app_modules(
     )
 
 
+def _declared_focused_modules(
+    tree: ast.Module,
+) -> tuple[str, ...]:
+    declarations: list[ast.Assign] = []
+
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            if isinstance(node, ast.AnnAssign):
+                if (
+                    isinstance(node.target, ast.Name)
+                    and node.target.id == "FOCUSED_TARGET_MODULES"
+                ):
+                    raise RuntimeError(
+                        "FOCUSED_TARGET_MODULES must use a plain assignment."
+                    )
+            continue
+
+        matching_targets = [
+            target
+            for target in node.targets
+            if (
+                isinstance(target, ast.Name)
+                and target.id == "FOCUSED_TARGET_MODULES"
+            )
+        ]
+
+        if matching_targets:
+            if len(node.targets) != 1:
+                raise RuntimeError(
+                    "FOCUSED_TARGET_MODULES must be a single-name assignment."
+                )
+
+            declarations.append(node)
+
+    if not declarations:
+        return ()
+
+    if len(declarations) != 1:
+        raise RuntimeError(
+            "FOCUSED_TARGET_MODULES must be declared exactly once."
+        )
+
+    value = declarations[0].value
+
+    if not isinstance(value, (ast.Tuple, ast.List)):
+        raise RuntimeError(
+            "FOCUSED_TARGET_MODULES must be a literal tuple or list."
+        )
+
+    modules_by_casefold: dict[str, str] = {}
+
+    for element in value.elts:
+        if not (
+            isinstance(element, ast.Constant)
+            and isinstance(element.value, str)
+        ):
+            raise RuntimeError(
+                "FOCUSED_TARGET_MODULES members must be literal strings."
+            )
+
+        module = element.value
+
+        if not module.startswith("app."):
+            raise RuntimeError(
+                "FOCUSED_TARGET_MODULES modules must start with 'app.'."
+            )
+
+        module_key = module.casefold()
+
+        if module_key not in modules_by_casefold:
+            modules_by_casefold[module_key] = module
+
+    return tuple(
+        sorted(
+            modules_by_casefold.values(),
+            key=str.casefold,
+        )
+    )
+
+
 def _classify_test_style(
     *,
     test_functions: tuple[str, ...],
@@ -216,6 +297,10 @@ def inspect_repository_test_registry(
             _imported_app_modules(tree)
         )
 
+        declared_focused_modules = (
+            _declared_focused_modules(tree)
+        )
+
         has_main_guard = _has_main_guard(
             tree
         )
@@ -239,6 +324,7 @@ def inspect_repository_test_registry(
                 style=style,
                 test_functions=test_functions,
                 imported_app_modules=imported_app_modules,
+                declared_focused_modules=declared_focused_modules,
                 has_main_guard=has_main_guard,
                 compile_target=relative_path,
                 execution_validated=False,
@@ -256,6 +342,7 @@ def inspect_repository_test_registry(
             "No tests or CI actions were executed."
         ),
     )
+
 
 def _changed_path_to_module(path: str) -> str | None:
     normalized = path.replace("\\", "/").strip()
@@ -308,7 +395,8 @@ def plan_test_selection(
                 entry.test_id
                 for entry in registry.tests
                 if changed_modules.intersection(
-                    entry.imported_app_modules
+                    set(entry.imported_app_modules)
+                    | set(entry.declared_focused_modules)
                 )
             ),
             key=str.casefold,
@@ -335,9 +423,8 @@ def plan_test_selection(
         executable=False,
         reason=(
             "Deterministic non-executing test selection. "
-            "Focused tests directly import changed app modules; "
-            "regression tests are the remaining registered tests. "
-            "No tests or CI actions were executed."
+            "Focused tests directly import or explicitly declare "
+            "changed app modules; regression tests are the remaining "
+            "registered tests. No tests or CI actions were executed."
         ),
     )
-

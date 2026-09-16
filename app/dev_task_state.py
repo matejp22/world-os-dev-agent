@@ -18,6 +18,8 @@ from app.milestone_handoff import (
     milestone_version,
     roadmap_expected_predecessor,
 )
+from app.roadmap_progress import calculate_project_progress
+from app.roadmap_store import load_project_roadmap
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -33,6 +35,13 @@ RESEARCH_ENGINE_TASK_STATE_PATH = (
     / "context"
     / "RESEARCH_ENGINE_TASK_STATE.json"
 )
+
+
+RESEARCH_ENGINE_LEGACY_MILESTONE_ALIASES = {
+    "research engine asset extraction v0.3 ? berth vertical slice": (
+        "milestone-berth-v03"
+    ),
+}
 
 TaskStatus = Literal[
     "ACTIVE",
@@ -278,6 +287,7 @@ ResumeDecision = Literal[
     "RESUME_PERSISTED",
     "ADVANCE_FROM_LIVE_STATE",
     "RECONCILE_AFTER_HANDOFF",
+    "RECONCILE_FROM_ROADMAP",
     "COMPLETE_TO_NO_NEW_MILESTONE",
     "CONFLICT",
 ]
@@ -332,6 +342,10 @@ def plan_task_state_transition(
         "RECONCILE_AFTER_HANDOFF": (
             "PERSIST",
             "Persist canonical ACTIVE task state after a verified milestone handoff.",
+        ),
+        "RECONCILE_FROM_ROADMAP": (
+            "PERSIST",
+            "Persist Research Engine task state reconciled from the canonical project roadmap.",
         ),
         "COMPLETE_TO_NO_NEW_MILESTONE": (
             "PERSIST",
@@ -597,9 +611,149 @@ def load_resolved_task_state(
                 "Research Engine task state is not initialized."
             )
 
+        validate_task_state(
+            persisted_state
+        )
+
+        roadmap = load_project_roadmap(
+            "world-os-research-engine"
+        )
+
+        progress = calculate_project_progress(
+            roadmap
+        )
+
+        current_milestone_id = (
+            progress.current_milestone_id
+        )
+
+        if current_milestone_id is None:
+            return ResumeResolution(
+                decision="RESUME_PERSISTED",
+                state=persisted_state,
+            )
+
+        milestones = tuple(
+            node
+            for node in roadmap.nodes
+            if node.kind == "MILESTONE"
+        )
+
+        current_milestone = next(
+            (
+                node
+                for node in milestones
+                if node.node_id == current_milestone_id
+            ),
+            None,
+        )
+
+        if current_milestone is None:
+            raise RuntimeError(
+                "Canonical Research Engine current milestone "
+                "was not found in the project roadmap."
+            )
+
+        persisted_name = (
+            persisted_state.milestone or ""
+        ).strip().casefold()
+
+        persisted_matches = tuple(
+            node
+            for node in milestones
+            if (
+                node.node_id.strip().casefold()
+                == persisted_name
+                or node.title.strip().casefold()
+                == persisted_name
+            )
+        )
+
+        if len(persisted_matches) > 1:
+            return ResumeResolution(
+                decision="CONFLICT",
+                state=persisted_state,
+            )
+
+        persisted_milestone = (
+            persisted_matches[0]
+            if len(persisted_matches) == 1
+            else None
+        )
+
+        if persisted_milestone is None:
+            legacy_milestone_id = (
+                RESEARCH_ENGINE_LEGACY_MILESTONE_ALIASES.get(
+                    persisted_name
+                )
+            )
+
+            if legacy_milestone_id is not None:
+                legacy_matches = tuple(
+                    node
+                    for node in milestones
+                    if node.node_id == legacy_milestone_id
+                )
+
+                if len(legacy_matches) != 1:
+                    return ResumeResolution(
+                        decision="CONFLICT",
+                        state=persisted_state,
+                    )
+
+                persisted_milestone = (
+                    legacy_matches[0]
+                )
+
+        if (
+            persisted_milestone is not None
+            and persisted_milestone.node_id
+            == current_milestone.node_id
+        ):
+            return ResumeResolution(
+                decision="RESUME_PERSISTED",
+                state=persisted_state,
+            )
+
+        if persisted_milestone is None:
+            return ResumeResolution(
+                decision="CONFLICT",
+                state=persisted_state,
+            )
+
+        persisted_is_strictly_complete = (
+            persisted_milestone.status == "COMPLETED"
+            and persisted_milestone.verification_status
+            == "PASSED"
+        )
+
+        if not persisted_is_strictly_complete:
+            return ResumeResolution(
+                decision="CONFLICT",
+                state=persisted_state,
+            )
+
+        reconciled_state = DevTaskState(
+            milestone=current_milestone.title,
+            objective=(
+                "Advance the canonical roadmap milestone "
+                f'"{current_milestone.title}" through the next '
+                "smallest safe bounded development step "
+                "consistent with the milestone and workspace policy."
+            ),
+            previous_milestone=(
+                persisted_state.milestone
+            ),
+            status="ACTIVE",
+        )
+
+        validate_task_state(
+            reconciled_state
+        )
+
         return ResumeResolution(
-            decision="RESUME_PERSISTED",
-            state=persisted_state,
+            decision="RECONCILE_FROM_ROADMAP",
+            state=reconciled_state,
         )
 
     raise ValueError(

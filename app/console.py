@@ -12,6 +12,10 @@ import streamlit as st
 from app.continue_status_parser import (
     parse_continue_milestone_output,
 )
+from app.full_file_approval import (
+    CONFIRM_PHRASE as PATCH_APPROVAL_CONFIRM_PHRASE,
+    approve_record,
+)
 
 from app.dev_task_state import (
     load_resolved_task_state,
@@ -26,6 +30,12 @@ from app.live_state_handoff_apply import (
 )
 from app.milestone_handoff import (
     build_handoff_plan,
+)
+from app.roadmap_progress import (
+    calculate_project_progress,
+)
+from app.roadmap_store import (
+    load_project_roadmap,
 )
 from app.roadmap_panel import (
     render_world_os_roadmap_panel,
@@ -479,31 +489,10 @@ if (
         )
 
 
-def _on_active_workspace_change() -> None:
-    selected = st.session_state.get(
-        workspace_state_key
-    )
-
-    if selected not in workspace_names:
-        st.session_state[workspace_state_key] = (
-            default_workspace
-            if default_workspace in workspace_names
-            else workspace_names[0]
-        )
-
-    st.session_state.pop(
-        "workspace_bound_task_resolution",
-        None,
-    )
-
-    st.rerun()
-
-
 st.selectbox(
     "Active workspace",
     options=workspace_names,
     key=workspace_state_key,
-    on_change=_on_active_workspace_change,
     help=(
         "Select the registered repository used for task-state resolution, "
         "workspace inspection, safe investigation, and Continue current milestone."
@@ -527,213 +516,391 @@ except Exception as exc:
 
 st.subheader("Development task state")
 
-try:
-    task_resolution = load_resolved_task_state(
-        selected_workspace_name
-    )
-except Exception as exc:
-    task_resolution = None
-    st.error(
-        "Task-state resolution failed: "
-        f"{type(exc).__name__}: {exc}"
-    )
+st.caption(
+    "Task state workspace: "
+    + selected_workspace_name
+)
 
-if task_resolution is not None:
-    task_state = task_resolution.state
-
-    decision_col, status_col = st.columns(2)
-
-    with decision_col:
-        st.markdown("**Resume decision**")
-        st.write(task_resolution.decision)
-
-    with status_col:
-        st.markdown("**Task status**")
-        st.write(task_state.status)
-
-    st.markdown("**Milestone**")
-    st.write(task_state.milestone or "<none>")
-
-    st.markdown("**Objective**")
-    st.write(task_state.objective or "<none>")
-
-    st.markdown("**Previous milestone**")
-    st.write(task_state.previous_milestone or "<none>")
-
-st.subheader("Milestone handoff")
-
-try:
-    if not LIVE_STATE_PATH.exists():
-        raise RuntimeError(
-            "Canonical LIVE_STATE.md is missing."
+if selected_workspace_name == "world-os-web":
+    try:
+        web_roadmap = load_project_roadmap(
+            "world-os-web"
         )
+        web_progress = calculate_project_progress(
+            web_roadmap
+        )
+    except Exception as exc:
+        st.error(
+            "Web roadmap state resolution failed: "
+            f"{type(exc).__name__}: {exc}"
+        )
+    else:
+        decision_col, status_col = st.columns(2)
 
-    live_state_sha256 = hashlib.sha256(
-        LIVE_STATE_PATH.read_bytes()
-    ).hexdigest()
+        with decision_col:
+            st.markdown("**Resume decision**")
+            st.write("READ_ONLY_ROADMAP_STATE")
 
-    handoff_plan = build_handoff_plan(
-        expected_live_state_sha256=live_state_sha256,
-        live_state_path=LIVE_STATE_PATH,
-        roadmap_path=ROADMAP_PATH,
-    )
+        with status_col:
+            st.markdown("**Task status**")
+            st.write("READ_ONLY")
 
-except Exception as exc:
-    handoff_plan = None
-
-    st.error(
-        "Milestone handoff planning failed closed: "
-        f"{type(exc).__name__}: {exc}"
-    )
-
-if handoff_plan is not None:
-    handoff_left, handoff_right = st.columns(2)
-
-    with handoff_left:
-        st.markdown("**Current milestone**")
+        st.markdown("**Milestone**")
         st.write(
-            handoff_plan.current_milestone
+            web_progress.current_milestone_id
             or "<none>"
         )
 
-        st.markdown("**Current objective status**")
+        st.markdown("**Objective**")
         st.write(
-            handoff_plan.current_objective_status
-            or "<none>"
+            "Development state is derived from the canonical "
+            "World OS Web roadmap."
         )
 
-    with handoff_right:
-        st.markdown("**Next milestone**")
+        st.markdown("**Project completion**")
         st.write(
-            handoff_plan.next_milestone
-            or "<none>"
+            f"{web_progress.completion_percent:.1f}%"
         )
 
-        st.markdown("**Handoff allowed**")
+        st.info(
+            "World OS Web is registered READ_ONLY. "
+            "No source modification or milestone execution "
+            "is permitted from the Dev Agent."
+        )
+
+else:
+    try:
+        task_resolution = load_resolved_task_state(
+            selected_workspace_name
+        )
+    except Exception as exc:
+        task_resolution = None
+        st.error(
+            "Task-state resolution failed: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+    if task_resolution is not None:
+        task_state = task_resolution.state
+
+        decision_col, status_col = st.columns(2)
+
+        with decision_col:
+            st.markdown("**Resume decision**")
+            st.write(task_resolution.decision)
+
+        with status_col:
+            st.markdown("**Task status**")
+            st.write(task_state.status)
+
+        st.markdown("**Milestone**")
+        st.write(task_state.milestone or "<none>")
+
+        st.markdown("**Objective**")
+        st.write(task_state.objective or "<none>")
+
+        st.markdown("**Previous milestone**")
+        st.write(task_state.previous_milestone or "<none>")
+        try:
+            project_roadmap = load_project_roadmap(
+                selected_workspace_name
+            )
+            project_progress = calculate_project_progress(
+                project_roadmap
+            )
+        except RuntimeError as exc:
+            st.warning(
+                "Project completion unavailable: "
+                f"{type(exc).__name__}: {exc}"
+            )
+        else:
+            st.markdown("**Project completion**")
+            st.write(
+                f"{project_progress.completion_percent:.1f}%"
+            )
+
+if selected_workspace_name == "world-os-dev-agent":
+    st.subheader("Milestone handoff")
+
+
+    try:
+        if not LIVE_STATE_PATH.exists():
+            raise RuntimeError(
+                "Canonical LIVE_STATE.md is missing."
+            )
+
+        live_state_sha256 = hashlib.sha256(
+            LIVE_STATE_PATH.read_bytes()
+        ).hexdigest()
+
+        handoff_plan = build_handoff_plan(
+            expected_live_state_sha256=live_state_sha256,
+            live_state_path=LIVE_STATE_PATH,
+            roadmap_path=ROADMAP_PATH,
+        )
+
+    except Exception as exc:
+        handoff_plan = None
+
+        st.error(
+            "Milestone handoff planning failed closed: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+    if handoff_plan is not None:
+        handoff_left, handoff_right = st.columns(2)
+
+        with handoff_left:
+            st.markdown("**Current milestone**")
+            st.write(
+                handoff_plan.current_milestone
+                or "<none>"
+            )
+
+            st.markdown("**Current objective status**")
+            st.write(
+                handoff_plan.current_objective_status
+                or "<none>"
+            )
+
+        with handoff_right:
+            st.markdown("**Next milestone**")
+            st.write(
+                handoff_plan.next_milestone
+                or "<none>"
+            )
+
+            st.markdown("**Handoff allowed**")
+            st.write(
+                handoff_plan.allowed
+            )
+
+        st.markdown("**LIVE_STATE SHA256**")
+        st.code(
+            handoff_plan.live_state_sha256,
+            language="text",
+        )
+
+        st.markdown("**Planner decision**")
         st.write(
-            handoff_plan.allowed
+            handoff_plan.reason
         )
 
-    st.markdown("**LIVE_STATE SHA256**")
-    st.code(
-        handoff_plan.live_state_sha256,
-        language="text",
-    )
+        if handoff_plan.next_milestone_objective:
+            st.markdown(
+                "**Next milestone objective**"
+            )
+            st.write(
+                handoff_plan.next_milestone_objective
+            )
 
-    st.markdown("**Planner decision**")
-    st.write(
-        handoff_plan.reason
-    )
+        if handoff_plan.allowed:
+            st.warning(
+                "Milestone handoff changes canonical context/LIVE_STATE.md. "
+                "It does not approve source patches, perform Git operations, "
+                "or enable Research Engine / Web writes."
+            )
 
-    if handoff_plan.next_milestone_objective:
-        st.markdown(
-            "**Next milestone objective**"
-        )
-        st.write(
-            handoff_plan.next_milestone_objective
-        )
+            handoff_confirm = st.checkbox(
+                "I confirm that I want to promote the declared next milestone "
+                "to the canonical current milestone.",
+                key="confirm-milestone-handoff",
+            )
 
-    if handoff_plan.allowed:
-        st.warning(
-            "Milestone handoff changes canonical context/LIVE_STATE.md. "
-            "It does not approve source patches, perform Git operations, "
-            "or enable Research Engine / Web writes."
-        )
+            handoff_phrase = st.text_input(
+                "Type the exact confirmation phrase",
+                value="",
+                key="milestone-handoff-confirmation-phrase",
+                help=(
+                    "Required phrase: "
+                    + CONFIRMATION_PHRASE
+                ),
+            )
 
-        handoff_confirm = st.checkbox(
-            "I confirm that I want to promote the declared next milestone "
-            "to the canonical current milestone.",
-            key="confirm-milestone-handoff",
-        )
+            phrase_matches = (
+                handoff_phrase
+                == CONFIRMATION_PHRASE
+            )
 
-        handoff_phrase = st.text_input(
-            "Type the exact confirmation phrase",
-            value="",
-            key="milestone-handoff-confirmation-phrase",
-            help=(
-                "Required phrase: "
-                + CONFIRMATION_PHRASE
-            ),
-        )
+            apply_handoff_clicked = st.button(
+                "Apply milestone handoff",
+                key="apply-milestone-handoff",
+                type="primary",
+                disabled=(
+                    not handoff_confirm
+                    or not phrase_matches
+                ),
+            )
 
-        phrase_matches = (
-            handoff_phrase
-            == CONFIRMATION_PHRASE
-        )
-
-        apply_handoff_clicked = st.button(
-            "Apply milestone handoff",
-            key="apply-milestone-handoff",
-            type="primary",
-            disabled=(
-                not handoff_confirm
-                or not phrase_matches
-            ),
-        )
-
-        if apply_handoff_clicked:
-            try:
-                handoff_result = apply_live_state_handoff(
-                    expected_live_state_sha256=(
-                        handoff_plan.live_state_sha256
-                    ),
-                    confirmation=handoff_phrase,
-                    live_state_path=LIVE_STATE_PATH,
-                    roadmap_path=ROADMAP_PATH,
-                )
-
-            except Exception as exc:
-                st.error(
-                    "Milestone handoff apply failed closed: "
-                    f"{type(exc).__name__}: {exc}"
-                )
-
-            else:
-                if not handoff_result.applied:
-                    st.error(
-                        "Milestone handoff did not report applied=True."
+            if apply_handoff_clicked:
+                try:
+                    handoff_result = apply_live_state_handoff(
+                        expected_live_state_sha256=(
+                            handoff_plan.live_state_sha256
+                        ),
+                        confirmation=handoff_phrase,
+                        live_state_path=LIVE_STATE_PATH,
+                        roadmap_path=ROADMAP_PATH,
                     )
 
-                elif not handoff_result.validated:
+                except Exception as exc:
                     st.error(
-                        "Milestone handoff post-write validation failed."
+                        "Milestone handoff apply failed closed: "
+                        f"{type(exc).__name__}: {exc}"
                     )
 
                 else:
-                    st.success(
-                        "Milestone handoff applied and validated."
-                    )
+                    if not handoff_result.applied:
+                        st.error(
+                            "Milestone handoff did not report applied=True."
+                        )
 
-                    st.write(
-                        "**Backup:** "
-                        + handoff_result.backup_path
-                    )
+                    elif not handoff_result.validated:
+                        st.error(
+                            "Milestone handoff post-write validation failed."
+                        )
 
-                    st.write(
-                        "**Applied SHA256:** "
-                        + handoff_result.applied_sha256
-                    )
+                    else:
+                        st.success(
+                            "Milestone handoff applied and validated."
+                        )
 
-                    st.info(
-                        "Developer task state will be re-resolved from "
-                        "canonical LIVE_STATE after reload."
-                    )
+                        st.write(
+                            "**Backup:** "
+                            + handoff_result.backup_path
+                        )
 
-                    st.rerun()
+                        st.write(
+                            "**Applied SHA256:** "
+                            + handoff_result.applied_sha256
+                        )
 
+                        st.info(
+                            "Developer task state will be re-resolved from "
+                            "canonical LIVE_STATE after reload."
+                        )
+
+                        st.rerun()
+
+        else:
+            st.info(
+                "Canonical milestone handoff is currently unavailable. "
+                "No LIVE_STATE write can be performed."
+            )
+
+
+else:
+    st.subheader("Project milestone state")
+
+    try:
+        selected_roadmap = load_project_roadmap(
+            selected_workspace_name
+        )
+        selected_progress = calculate_project_progress(
+            selected_roadmap
+        )
+    except RuntimeError as exc:
+        st.error(
+            "Project milestone state unavailable: "
+            f"{type(exc).__name__}: {exc}"
+        )
     else:
-        st.info(
-            "Canonical milestone handoff is currently unavailable. "
-            "No LIVE_STATE write can be performed."
+        current_project_milestone = next(
+            (
+                node
+                for node in selected_roadmap.nodes
+                if (
+                    node.kind == "MILESTONE"
+                    and node.node_id
+                    == selected_progress.current_milestone_id
+                )
+            ),
+            None,
         )
 
+        milestone_left, milestone_right = st.columns(2)
+
+        with milestone_left:
+            st.markdown("**Current milestone**")
+            st.write(
+                current_project_milestone.title
+                if current_project_milestone is not None
+                else "<none>"
+            )
+
+            if current_project_milestone is not None:
+                st.markdown("**Milestone ID**")
+                st.code(
+                    current_project_milestone.node_id,
+                    language="text",
+                )
+
+        with milestone_right:
+            st.markdown("**Project completion**")
+            st.write(
+                f"{selected_progress.completion_percent:.1f}%"
+            )
+
+            st.markdown("**Milestones completed**")
+            st.write(
+                f"{selected_progress.completed_milestones}/"
+                f"{selected_progress.total_milestones}"
+            )
+
+        if current_project_milestone is not None:
+            st.markdown("**Milestone status**")
+            st.write(
+                current_project_milestone.status
+            )
+
+            st.markdown("**Verification status**")
+            st.write(
+                current_project_milestone.verification_status
+            )
+
+        st.info(
+            "This workspace uses its canonical project roadmap. "
+            "Dev Agent LIVE_STATE milestone handoff applies only to "
+            "world-os-dev-agent and is not shown here."
+        )
 st.divider()
 
 st.subheader("Workspace target")
 
-render_workspace_context(
-    selected_workspace
+
+workspace_profile = selected_workspace.workspace
+
+summary_left, summary_right = st.columns(2)
+
+with summary_left:
+    st.write("**Workspace:** " + workspace_profile.name)
+    st.write("**Path:** " + str(workspace_profile.path))
+
+with summary_right:
+    st.write("**Access mode:** " + workspace_profile.access_mode)
+    st.write(
+        "**Writable via Dev Agent:** "
+        + str(selected_workspace.writable_via_dev_agent)
+    )
+
+inspect_workspace_clicked = st.button(
+    "Inspect workspace (read only)",
+    key=f"inspect-workspace-{selected_workspace_name}",
+    help=(
+        "Runs bounded structure and Git inspection only when requested. "
+        "No Git mutation is performed."
+    ),
 )
+
+if inspect_workspace_clicked:
+    render_workspace_context(
+        selected_workspace
+    )
+else:
+    st.caption(
+        "Detailed structure and Git inspection is idle. "
+        "Click Inspect workspace only when you need it."
+    )
 
 if not selected_workspace.writable_via_dev_agent:
     st.warning(
@@ -750,17 +917,29 @@ st.caption(
 
 st.divider()
 
-tab_run, tab_roadmap, tab_history, tab_patches = st.tabs(
-    [
+console_section = st.radio(
+    "Console section",
+    options=(
         "Run",
         "Roadmap",
         "Session history",
         "Patch review",
-    ]
+    ),
+    horizontal=True,
+    key="console-section",
+    help=(
+        "Only the selected console section is executed. "
+        "Inactive Roadmap, Session history, and Patch review "
+        "sections remain idle."
+    ),
+)
+
+st.caption(
+    "Lazy console mode: only the selected section runs on this render."
 )
 
 
-with tab_roadmap:
+if console_section == "Roadmap":
     render_world_os_roadmap_panel(
         master_roadmap_path=(
             ROOT
@@ -776,7 +955,7 @@ with tab_roadmap:
     )
 
 
-with tab_run:
+if console_section == "Run":
     goal = st.text_area(
         "Development goal",
         value=DEFAULT_GOAL,
@@ -790,6 +969,14 @@ with tab_run:
 
     continue_clicked = st.button(
         "Continue current milestone",
+        disabled=(
+            not selected_workspace.writable_via_dev_agent
+        ),
+        help=(
+            None
+            if selected_workspace.writable_via_dev_agent
+            else "This workspace is READ_ONLY."
+        ),
     )
 
     if run_clicked or continue_clicked:
@@ -1005,7 +1192,7 @@ with tab_run:
                     )
 
 
-with tab_history:
+if console_section == "Session history":
     st.subheader("Recent autonomous sessions")
 
     logs = recent_session_logs()
@@ -1046,7 +1233,7 @@ with tab_history:
                 )
 
 
-with tab_patches:
+if console_section == "Patch review":
     st.subheader("Patch control")
 
     records = load_patch_records()
@@ -1139,19 +1326,22 @@ with tab_patches:
                         )
 
                     if approve_clicked:
-                        data["status"] = "APPROVED"
+                        try:
+                            approve_record(
+                                patch_id,
+                                confirmation=PATCH_APPROVAL_CONFIRM_PHRASE,
+                            )
+                        except RuntimeError as exc:
+                            st.error(
+                                f"Approval blocked: {exc}"
+                            )
+                        else:
+                            st.success(
+                                "Patch approved through canonical Quality Gate. "
+                                "Source code was NOT modified."
+                            )
 
-                        save_patch_record(
-                            path,
-                            data,
-                        )
-
-                        st.success(
-                            "Patch approved. "
-                            "Source code was NOT modified."
-                        )
-
-                        st.rerun()
+                            st.rerun()
 
                     if reject_clicked:
                         data["status"] = "REJECTED"
