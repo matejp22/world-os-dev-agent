@@ -331,8 +331,9 @@ def test_missing_quality_evidence_runs_and_persists_before_gate(
     record = _read_record(queue_file)
     workspace_name = record["workspace_name"]
     target_file = record["target_file"]
+    candidate_file = record["candidate_file"]
 
-    runner_calls: list[dict[str, str]] = []
+    runner_calls: list[dict[str, object]] = []
     persistence_calls: list[dict[str, object]] = []
     gate_calls: list[dict[str, object]] = []
 
@@ -345,11 +346,15 @@ def test_missing_quality_evidence_runs_and_persists_before_gate(
         *,
         workspace_name: str,
         target_file: str,
+        candidate_target_file: str,
+        candidate_file: object,
     ) -> PatchQualityExecutionResult:
         runner_calls.append(
             {
                 "workspace_name": workspace_name,
                 "target_file": target_file,
+                "candidate_target_file": candidate_target_file,
+                "candidate_file": candidate_file,
             }
         )
         return result
@@ -416,6 +421,8 @@ def test_missing_quality_evidence_runs_and_persists_before_gate(
     assert runner_calls[0] == {
         "workspace_name": workspace_name,
         "target_file": target_file,
+        "candidate_target_file": target_file,
+        "candidate_file": candidate_file,
     }
     assert len(persistence_calls) == 1
     assert persistence_calls[0]["patch_id"] == _PATCH_ID

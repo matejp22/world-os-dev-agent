@@ -264,6 +264,256 @@ def test_focused_pass_without_regression(
     assert any("no regression tests selected" in r for r in result.reasons)
 
 
+
+def test_candidate_overlay_forwarded_to_focused_execution(
+    runner_module: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    registry = RegistryStub()
+
+    selection_calls: list[
+        tuple[object, tuple[str, ...]]
+    ] = []
+
+    executor_calls: list[
+        tuple[
+            object,
+            tuple[str, ...],
+            int,
+            str | None,
+            object | None,
+        ]
+    ] = []
+
+    candidate_file = tmp_path / "candidate.py"
+    candidate_file.write_text(
+        "VALUE = 1\n",
+        encoding="utf-8",
+    )
+
+    def fake_inspect(
+        workspace_name: str,
+    ) -> RegistryStub:
+        assert workspace_name == "world-os-dev-agent"
+        return registry
+
+    def fake_select(
+        registry_arg: object,
+        changed_files_arg: tuple[str, ...],
+    ) -> SelectionStub:
+        selection_calls.append(
+            (registry_arg, changed_files_arg)
+        )
+        return SelectionStub(
+            ("test_focus",),
+            (),
+        )
+
+    def fake_execute(
+        registry_arg: object,
+        test_ids_arg: tuple[str, ...],
+        *,
+        timeout_seconds: int,
+        candidate_target_file: str | None = None,
+        candidate_file: object | None = None,
+    ) -> BatchStub:
+        executor_calls.append(
+            (
+                registry_arg,
+                test_ids_arg,
+                timeout_seconds,
+                candidate_target_file,
+                candidate_file,
+            )
+        )
+
+        return BatchStub(
+            workspace_name="world-os-dev-agent",
+            requested_test_ids=test_ids_arg,
+            results=(),
+            passed=True,
+            executed=True,
+            reason="ok",
+        )
+
+    monkeypatch.setattr(
+        runner_module,
+        "inspect_repository_test_registry",
+        fake_inspect,
+    )
+    monkeypatch.setattr(
+        runner_module,
+        "plan_test_selection",
+        fake_select,
+    )
+    monkeypatch.setattr(
+        runner_module,
+        "execute_registered_tests",
+        fake_execute,
+    )
+
+    result = runner_module.run_patch_quality_evidence(
+        workspace_name="world-os-dev-agent",
+        target_file="app/example.py",
+        timeout_seconds=37,
+        candidate_target_file="app/example.py",
+        candidate_file=candidate_file,
+    )
+
+    assert selection_calls == [
+        (registry, ("app/example.py",))
+    ]
+
+    assert executor_calls == [
+        (
+            registry,
+            ("test_focus",),
+            37,
+            "app/example.py",
+            candidate_file,
+        )
+    ]
+
+    assert result.behavioral_source_change is True
+    assert result.execution_supported is True
+    assert result.focused_test_ids == ("test_focus",)
+    assert result.regression_test_ids == ()
+    assert result.focused_tests_executed is True
+    assert result.focused_tests_passed is True
+    assert result.regression_tests_executed is False
+    assert result.regression_tests_passed is False
+
+
+def test_candidate_overlay_forwarded_to_focused_and_regression_execution(
+    runner_module: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    registry = RegistryStub()
+
+    selection_calls: list[
+        tuple[object, tuple[str, ...]]
+    ] = []
+
+    executor_calls: list[
+        tuple[
+            object,
+            tuple[str, ...],
+            int,
+            str | None,
+            object | None,
+        ]
+    ] = []
+
+    candidate_file = tmp_path / "candidate.py"
+    candidate_file.write_text(
+        "VALUE = 1\n",
+        encoding="utf-8",
+    )
+
+    def fake_inspect(
+        workspace_name: str,
+    ) -> RegistryStub:
+        assert workspace_name == "world-os-dev-agent"
+        return registry
+
+    def fake_select(
+        registry_arg: object,
+        changed_files_arg: tuple[str, ...],
+    ) -> SelectionStub:
+        selection_calls.append(
+            (registry_arg, changed_files_arg)
+        )
+        return SelectionStub(
+            ("test_focus",),
+            ("test_regression",),
+        )
+
+    def fake_execute(
+        registry_arg: object,
+        test_ids_arg: tuple[str, ...],
+        *,
+        timeout_seconds: int,
+        candidate_target_file: str | None = None,
+        candidate_file: object | None = None,
+    ) -> BatchStub:
+        executor_calls.append(
+            (
+                registry_arg,
+                test_ids_arg,
+                timeout_seconds,
+                candidate_target_file,
+                candidate_file,
+            )
+        )
+
+        return BatchStub(
+            workspace_name="world-os-dev-agent",
+            requested_test_ids=test_ids_arg,
+            results=(),
+            passed=True,
+            executed=True,
+            reason="ok",
+        )
+
+    monkeypatch.setattr(
+        runner_module,
+        "inspect_repository_test_registry",
+        fake_inspect,
+    )
+    monkeypatch.setattr(
+        runner_module,
+        "plan_test_selection",
+        fake_select,
+    )
+    monkeypatch.setattr(
+        runner_module,
+        "execute_registered_tests",
+        fake_execute,
+    )
+
+    result = runner_module.run_patch_quality_evidence(
+        workspace_name="world-os-dev-agent",
+        target_file="app/example.py",
+        timeout_seconds=37,
+        candidate_target_file="app/example.py",
+        candidate_file=candidate_file,
+    )
+
+    assert selection_calls == [
+        (registry, ("app/example.py",))
+    ]
+
+    assert executor_calls == [
+        (
+            registry,
+            ("test_focus",),
+            37,
+            "app/example.py",
+            candidate_file,
+        ),
+        (
+            registry,
+            ("test_regression",),
+            37,
+            "app/example.py",
+            candidate_file,
+        ),
+    ]
+
+    assert result.behavioral_source_change is True
+    assert result.execution_supported is True
+    assert result.focused_test_ids == ("test_focus",)
+    assert result.regression_test_ids == (
+        "test_regression",
+    )
+    assert result.focused_tests_executed is True
+    assert result.focused_tests_passed is True
+    assert result.regression_tests_executed is True
+    assert result.regression_tests_passed is True
+
+
 def test_focused_failure_skips_regression(
     runner_module: ModuleType,
     monkeypatch: pytest.MonkeyPatch,) -> None:
@@ -578,7 +828,9 @@ def test_quality_evidence_payload_exact_shape(
 
 def test_input_validation(
     runner_module: ModuleType,
-    monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     calls = {"inspect": 0, "selection": 0, "executor": 0}
 
     monkeypatch.setattr(
@@ -601,12 +853,30 @@ def test_input_validation(
         ),
     )
 
+    candidate_file = tmp_path / "candidate.py"
+    candidate_file.write_text(
+        "VALUE = 1\n",
+        encoding="utf-8",
+    )
+
     invalid_calls = (
         lambda: runner_module.run_patch_quality_evidence(workspace_name="", target_file="app/example.py"),
         lambda: runner_module.run_patch_quality_evidence(workspace_name="world-os-dev-agent", target_file=""),
         lambda: runner_module.run_patch_quality_evidence(workspace_name="world-os-dev-agent", target_file="app/example.py", timeout_seconds=0),
         lambda: runner_module.run_patch_quality_evidence(workspace_name="world-os-dev-agent", target_file="app/example.py", timeout_seconds=301),
         lambda: runner_module.run_patch_quality_evidence(workspace_name="world-os-dev-agent", target_file="app/example.py", timeout_seconds="60"),
+        lambda: runner_module.run_patch_quality_evidence(
+            workspace_name="world-os-dev-agent",
+            target_file="app/example.py",
+            candidate_target_file="app/example.py",
+            candidate_file=None,
+        ),
+        lambda: runner_module.run_patch_quality_evidence(
+            workspace_name="world-os-dev-agent",
+            target_file="app/example.py",
+            candidate_target_file=None,
+            candidate_file=candidate_file,
+        ),
     )
 
     for invalid_call in invalid_calls:

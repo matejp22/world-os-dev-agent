@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from os import PathLike
 
 from app.test_execution import (
     BLOCKED_TEST_IDS,
@@ -124,7 +125,28 @@ def run_patch_quality_evidence(
     workspace_name: str,
     target_file: str,
     timeout_seconds: int = 60,
+    candidate_target_file: str | None = None,
+    candidate_file: str | PathLike[str] | None = None,
 ) -> PatchQualityExecutionResult:
+    candidate_pair_supplied = (
+        candidate_target_file is not None
+        and candidate_file is not None
+    )
+
+    candidate_pair_missing = (
+        candidate_target_file is None
+        and candidate_file is None
+    )
+
+    if not (
+        candidate_pair_supplied
+        or candidate_pair_missing
+    ):
+        raise ValueError(
+            "candidate_target_file and candidate_file "
+            "must be supplied together."
+        )
+
     workspace_name, target_file = _validate_inputs(
         workspace_name=workspace_name,
         target_file=target_file,
@@ -227,11 +249,20 @@ def run_patch_quality_evidence(
         )
 
     try:
-        focused_batch = execute_registered_tests(
-            registry,
-            focused_ids,
-            timeout_seconds=timeout_seconds,
-        )
+        if candidate_pair_supplied:
+            focused_batch = execute_registered_tests(
+                registry,
+                focused_ids,
+                timeout_seconds=timeout_seconds,
+                candidate_target_file=candidate_target_file,
+                candidate_file=candidate_file,
+            )
+        else:
+            focused_batch = execute_registered_tests(
+                registry,
+                focused_ids,
+                timeout_seconds=timeout_seconds,
+            )
     except Exception as exc:
         return _result(
             workspace_name=workspace_name,
@@ -309,11 +340,20 @@ def run_patch_quality_evidence(
         )
 
     try:
-        regression_batch = execute_registered_tests(
-            registry,
-            regression_ids,
-            timeout_seconds=timeout_seconds,
-        )
+        if candidate_pair_supplied:
+            regression_batch = execute_registered_tests(
+                registry,
+                regression_ids,
+                timeout_seconds=timeout_seconds,
+                candidate_target_file=candidate_target_file,
+                candidate_file=candidate_file,
+            )
+        else:
+            regression_batch = execute_registered_tests(
+                registry,
+                regression_ids,
+                timeout_seconds=timeout_seconds,
+            )
     except Exception as exc:
         return _result(
             workspace_name=workspace_name,

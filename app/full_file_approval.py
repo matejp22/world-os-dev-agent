@@ -296,6 +296,8 @@ def approve_record(
         result = run_patch_quality_evidence(
             workspace_name=preflight_workspace_name,
             target_file=preflight_target_file,
+            candidate_target_file=preflight_target_file,
+            candidate_file=candidate_file,
         )
 
         persist_patch_quality_evidence(
