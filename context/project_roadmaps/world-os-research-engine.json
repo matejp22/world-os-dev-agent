@@ -226,11 +226,23 @@
       "title": "Source Understanding Hardening",
       "kind": "GROUP",
       "parent_id": null,
-      "status": "NOT_STARTED",
+      "status": "IN_PROGRESS",
       "weight": 0.0,
       "dependencies": [],
       "verification_status": "NOT_REQUIRED",
       "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-http-source-content-parsing-hardening",
+      "title": "HTTP Source Content Parsing Hardening",
+      "kind": "MILESTONE",
+      "parent_id": "group-source-understanding-hardening",
+      "status": "COMPLETED",
+      "weight": 2.0,
+      "dependencies": [],
+      "verification_status": "PASSED",
+      "patch_id": "a49b976f-450d-4706-8bae-49a69692677b",
       "completed_at": null
     },
     {
@@ -239,8 +251,10 @@
       "kind": "MILESTONE",
       "parent_id": "group-source-understanding-hardening",
       "status": "IN_PROGRESS",
-      "weight": 10.0,
-      "dependencies": [],
+      "weight": 8.0,
+      "dependencies": [
+        "milestone-http-source-content-parsing-hardening"
+      ],
       "verification_status": "PENDING",
       "patch_id": null,
       "completed_at": null
