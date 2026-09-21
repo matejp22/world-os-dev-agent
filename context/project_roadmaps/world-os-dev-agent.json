@@ -851,6 +851,46 @@
       "verification_status": "PASSED",
       "patch_id": "654cbcc4-163b-4d41-964e-f05aaf1a746e",
       "completed_at": "2026-09-11T22:23:31.233671+02:00"
+    },
+    {
+      "node_id": "group-self-verification-infrastructure-recovery",
+      "title": "Self-Verification & Infrastructure Recovery",
+      "kind": "GROUP",
+      "parent_id": null,
+      "status": "NOT_STARTED",
+      "weight": 0.0,
+      "dependencies": [],
+      "verification_status": "NOT_REQUIRED",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-quality-evidence-revalidation",
+      "title": "Quality Evidence Revalidation Production-Ready",
+      "kind": "MILESTONE",
+      "parent_id": "group-self-verification-infrastructure-recovery",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-production-autonomous-dev-agent"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
+    },
+    {
+      "node_id": "milestone-automatic-infrastructure-recovery-loop",
+      "title": "Automatic Infrastructure Recovery Loop Production-Ready",
+      "kind": "MILESTONE",
+      "parent_id": "group-self-verification-infrastructure-recovery",
+      "status": "NOT_STARTED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-quality-evidence-revalidation"
+      ],
+      "verification_status": "PENDING",
+      "patch_id": null,
+      "completed_at": null
     }
   ]
 }
