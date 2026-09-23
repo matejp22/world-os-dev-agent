@@ -869,14 +869,14 @@
       "title": "Quality Evidence Revalidation Production-Ready",
       "kind": "MILESTONE",
       "parent_id": "group-self-verification-infrastructure-recovery",
-      "status": "NOT_STARTED",
+      "status": "COMPLETED",
       "weight": 5.0,
       "dependencies": [
         "milestone-production-autonomous-dev-agent"
       ],
-      "verification_status": "PENDING",
-      "patch_id": null,
-      "completed_at": null
+      "verification_status": "PASSED",
+      "patch_id": "3eeb0ece-1897-4071-ad60-4ce97cdab3c2",
+      "completed_at": "2026-09-23T11:39:14.200011+00:00"
     },
     {
       "node_id": "milestone-automatic-infrastructure-recovery-loop",
@@ -891,6 +891,20 @@
       "verification_status": "PENDING",
       "patch_id": null,
       "completed_at": null
+    },
+    {
+      "node_id": "milestone-console-patch-review-scalability",
+      "title": "Console Patch Review Scalability Production-Ready",
+      "kind": "MILESTONE",
+      "parent_id": "group-roadmap-console",
+      "status": "COMPLETED",
+      "weight": 5.0,
+      "dependencies": [
+        "milestone-roadmap-console-readonly"
+      ],
+      "verification_status": "PASSED",
+      "patch_id": "4951f142-0ad8-48f7-8abe-cc9fcc476626",
+      "completed_at": "2026-09-23T19:38:00.414956+00:00"
     }
   ]
 }
