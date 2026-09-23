@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "validations": [
+    {
+      "workspace_name": "world-os-dev-agent",
+      "test_id": "test_full_file_diff_pipeline",
+      "test_path": "app/test_full_file_diff_pipeline.py",
+      "test_sha256": "bfe423842976b72c3bd23df6e6a8c840f6173c49d2e65e9543f318bfeea899b7",
+      "execution_validated": true
+    },
+    {
+      "workspace_name": "world-os-dev-agent",
+      "test_id": "test_test_execution_workspace_policy",
+      "test_path": "app/test_test_execution_workspace_policy.py",
+      "test_sha256": "aa22845ebd54cef8a64953aac52d82985f9f0aa80944d9531006c061b6c74bbe",
+      "execution_validated": true
+    }
+  ]
+}

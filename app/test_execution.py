@@ -118,12 +118,15 @@ def _validate_requested_test_ids(
                 f"Unknown registered test ID: {test_id}"
             )
 
-        if test_id in BLOCKED_TEST_IDS:
+        entry = entry_map[test_id]
+
+        if (
+            test_id in BLOCKED_TEST_IDS
+            and entry.execution_validated is not True
+        ):
             raise RuntimeError(
                 f"Test is blocked until explicitly validated: {test_id}"
             )
-
-        entry = entry_map[test_id]
 
         if entry.style not in {
             "PYTEST_FUNCTIONS",

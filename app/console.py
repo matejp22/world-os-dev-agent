@@ -1243,350 +1243,438 @@ if console_section == "Patch review":
             "No patch records found."
         )
     else:
-        for path, data in records:
-            patch_id = data.get(
+        actionable_statuses = {
+            "READY_FOR_HUMAN_REVIEW",
+            "APPROVED",
+        }
+
+        actionable_records = [
+            item
+            for item in records
+            if item[1].get("status") in actionable_statuses
+        ]
+
+        history_records = [
+            item
+            for item in records
+            if item[1].get("status") not in actionable_statuses
+        ]
+
+        category_options = (
+            "Actionable patches",
+            "Patch history",
+        )
+
+        default_category_index = (
+            0
+            if actionable_records
+            else 1
+        )
+
+        selected_category = st.radio(
+            "Patch records",
+            options=category_options,
+            index=default_category_index,
+            horizontal=True,
+            key="patch-review-category",
+        )
+
+        selected_records = (
+            actionable_records
+            if selected_category == "Actionable patches"
+            else history_records
+        )
+
+        if not selected_records:
+            st.info(
+                "No patch records are available in this category."
+            )
+        else:
+            record_options = []
+
+            for path, data in selected_records:
+                patch_id = data.get(
+                    "patch_id",
+                    path.stem,
+                )
+
+                target_file = data.get(
+                    "target_file",
+                    "<unknown>",
+                )
+
+                status = data.get(
+                    "status",
+                    "<unknown>",
+                )
+
+                record_options.append(
+                    (
+                        f"{status} — {target_file} — {patch_id}",
+                        patch_id,
+                    )
+                )
+
+            record_labels = [
+                label
+                for label, _ in record_options
+            ]
+
+            selected_label = st.selectbox(
+                "Select a patch",
+                options=record_labels,
+                key="patch-review-selected-record",
+            )
+
+            selected_patch_id = dict(
+                record_options
+            )[selected_label]
+
+            selected_path, selected_data = next(
+                item
+                for item in selected_records
+                if item[1].get(
+                    "patch_id",
+                    item[0].stem,
+                )
+                == selected_patch_id
+            )
+
+            patch_id = selected_data.get(
                 "patch_id",
-                path.stem,
+                selected_path.stem,
             )
 
-            target_file = data.get(
-                "target_file",
-                "<unknown>",
-            )
-
-            status = data.get(
+            status = selected_data.get(
                 "status",
                 "<unknown>",
             )
 
-            format_version = data.get(
+            format_version = selected_data.get(
                 "format_version",
                 "<unknown>",
             )
 
-            label = (
-                f"{status} — {target_file} — {patch_id}"
+            st.markdown(
+                f"### Selected patch: {patch_id}"
             )
 
-            with st.expander(
-                label
+            st.write(
+                f"Format: {format_version}"
+            )
+
+            st.write(
+                f"Semantic decision: "
+                f"{selected_data.get('semantic_decision', '<unknown>')}"
+            )
+
+            if selected_data.get(
+                "semantic_review"
             ):
+                st.markdown(
+                    "**Semantic review**"
+                )
                 st.write(
-                    f"Format: {data.get('format_version', '<unknown>')}"
+                    selected_data["semantic_review"]
                 )
 
-                st.write(
-                    f"Semantic decision: "
-                    f"{data.get('semantic_decision', '<unknown>')}"
+            if selected_data.get(
+                "diff_file"
+            ):
+                diff_path = Path(
+                    selected_data["diff_file"]
                 )
 
-                if data.get(
-                    "semantic_review"
-                ):
+                if diff_path.exists():
                     st.markdown(
-                        "**Semantic review**"
+                        "**Review diff**"
                     )
-                    st.write(
-                        data["semantic_review"]
-                    )
-
-                if data.get(
-                    "diff_file"
-                ):
-                    diff_path = Path(
-                        data["diff_file"]
+                    st.code(
+                        diff_path.read_text(
+                            encoding="utf-8",
+                            errors="replace",
+                        ),
+                        language="diff",
                     )
 
-                    if diff_path.exists():
-                        st.markdown(
-                            "**Review diff**"
+            if status == "READY_FOR_HUMAN_REVIEW":
+                approve_col, reject_col = st.columns(2)
+
+                with approve_col:
+                    approve_clicked = st.button(
+                        "Approve",
+                        key=f"approve-{patch_id}",
+                        type="primary",
+                    )
+
+                with reject_col:
+                    reject_clicked = st.button(
+                        "Reject",
+                        key=f"reject-{patch_id}",
+                    )
+
+                if approve_clicked:
+                    try:
+                        approve_record(
+                            patch_id,
+                            confirmation=PATCH_APPROVAL_CONFIRM_PHRASE,
                         )
-                        st.code(
-                            diff_path.read_text(
-                                encoding="utf-8",
-                                errors="replace",
-                            ),
-                            language="diff",
+                    except RuntimeError as exc:
+                        st.error(
+                            f"Approval blocked: {exc}"
                         )
-
-                if status == "READY_FOR_HUMAN_REVIEW":
-                    approve_col, reject_col = st.columns(2)
-
-                    with approve_col:
-                        approve_clicked = st.button(
-                            "Approve",
-                            key=f"approve-{patch_id}",
-                            type="primary",
-                        )
-
-                    with reject_col:
-                        reject_clicked = st.button(
-                            "Reject",
-                            key=f"reject-{patch_id}",
-                        )
-
-                    if approve_clicked:
-                        try:
-                            approve_record(
-                                patch_id,
-                                confirmation=PATCH_APPROVAL_CONFIRM_PHRASE,
-                            )
-                        except RuntimeError as exc:
-                            st.error(
-                                f"Approval blocked: {exc}"
-                            )
-                        else:
-                            st.success(
-                                "Patch approved through canonical Quality Gate. "
-                                "Source code was NOT modified."
-                            )
-
-                            st.rerun()
-
-                    if reject_clicked:
-                        data["status"] = "REJECTED"
-
-                        save_patch_record(
-                            path,
-                            data,
-                        )
-
-                        st.warning(
-                            "Patch rejected."
+                    else:
+                        st.success(
+                            "Patch approved through canonical Quality Gate. "
+                            "Source code was NOT modified."
                         )
 
                         st.rerun()
 
-                elif status == "APPROVED":
-                    st.success(
-                        "Patch is approved and eligible for explicit apply."
+                if reject_clicked:
+                    selected_data["status"] = "REJECTED"
+
+                    save_patch_record(
+                        selected_path,
+                        selected_data,
                     )
 
-                    confirm = st.checkbox(
-                        "I confirm that I want to apply this approved patch.",
-                        key=f"confirm-apply-{patch_id}",
-                    )
-
-                    apply_clicked = st.button(
-                        "Apply approved patch",
-                        key=f"apply-{patch_id}",
-                        type="primary",
-                        disabled=not confirm,
-                    )
-
-                    if apply_clicked:
-                        with st.spinner(
-                            "Applying patch with integrity checks..."
-                        ):
-                            result = apply_patch_by_format(
-                                patch_id,
-                                format_version,
-                            )
-
-                        if result.returncode == 0:
-                            st.success(
-                                "Patch applied successfully."
-                            )
-
-                            st.code(
-                                result.stdout.strip(),
-                                language="text",
-                            )
-
-                            st.rerun()
-                        else:
-                            st.error(
-                                "Patch apply failed."
-                            )
-
-                            st.code(
-                                (
-                                    result.stderr.strip()
-                                    or result.stdout.strip()
-                                    or "<no output>"
-                                ),
-                                language="text",
-                            )
-
-                elif status == "REJECTED":
-                    st.error(
+                    st.warning(
                         "Patch rejected."
                     )
 
-                elif status == "APPLIED":
-                    st.success(
-                        "Patch already applied."
-                    )
+                    st.rerun()
 
-                    post_apply = data.get(
-                        "post_apply"
-                    )
+            elif status == "APPROVED":
+                st.success(
+                    "Patch is approved and eligible for explicit apply."
+                )
 
-                    if isinstance(
-                        post_apply,
-                        dict,
+                confirm = st.checkbox(
+                    "I confirm that I want to apply this approved patch.",
+                    key=f"confirm-apply-{patch_id}",
+                )
+
+                apply_clicked = st.button(
+                    "Apply approved patch",
+                    key=f"apply-{patch_id}",
+                    type="primary",
+                    disabled=not confirm,
+                )
+
+                if apply_clicked:
+                    with st.spinner(
+                        "Applying patch with integrity checks..."
                     ):
-                        post_apply_validated = (
-                            post_apply.get(
-                                "validated"
-                            )
-                            is True
+                        result = apply_patch_by_format(
+                            patch_id,
+                            format_version,
                         )
 
-                        post_apply_next_action = str(
-                            post_apply.get(
-                                "next_action"
-                            )
-                            or ""
-                        ).strip().upper()
+                    if result.returncode == 0:
+                        st.success(
+                            "Patch applied successfully."
+                        )
 
-                        post_apply_reason = str(
-                            post_apply.get(
-                                "reason"
-                            )
-                            or ""
-                        ).strip()
+                        st.code(
+                            result.stdout.strip(),
+                            language="text",
+                        )
 
-                        if (
-                            post_apply_validated
-                            and post_apply_next_action
-                            == "CONTINUE_SAFELY"
-                        ):
-                            st.markdown(
-                                "**Next bounded development action**"
+                        st.rerun()
+                    else:
+                        st.error(
+                            "Patch apply failed."
+                        )
+
+                        st.code(
+                            (
+                                result.stderr.strip()
+                                or result.stdout.strip()
+                                or "<no output>"
+                            ),
+                            language="text",
+                        )
+
+            elif status == "REJECTED":
+                st.error(
+                    "Patch rejected."
+                )
+
+            elif status == "APPLIED":
+                st.success(
+                    "Patch already applied."
+                )
+
+                post_apply = selected_data.get(
+                    "post_apply"
+                )
+
+                if isinstance(
+                    post_apply,
+                    dict,
+                ):
+                    post_apply_validated = (
+                        post_apply.get(
+                            "validated"
+                        )
+                        is True
+                    )
+
+                    post_apply_next_action = str(
+                        post_apply.get(
+                            "next_action"
+                        )
+                        or ""
+                    ).strip().upper()
+
+                    post_apply_reason = str(
+                        post_apply.get(
+                            "reason"
+                        )
+                        or ""
+                    ).strip()
+
+                    if (
+                        post_apply_validated
+                        and post_apply_next_action
+                        == "CONTINUE_SAFELY"
+                    ):
+                        st.markdown(
+                            "**Next bounded development action**"
+                        )
+
+                        if post_apply_reason:
+                            st.info(
+                                post_apply_reason
+                            )
+                        else:
+                            st.info(
+                                "The applied patch passed post-apply "
+                                "validation. Continue safely to determine "
+                                "the next bounded development action."
                             )
 
-                            if post_apply_reason:
-                                st.info(
-                                    post_apply_reason
+                        continue_after_apply_clicked = st.button(
+                            "Continue safely",
+                            key=(
+                                "post-apply-continue-"
+                                f"{patch_id}"
+                            ),
+                            type="primary",
+                        )
+
+                        if continue_after_apply_clicked:
+                            with st.spinner(
+                                "World OS Dev Agent is determining "
+                                "the next bounded development action..."
+                            ):
+                                continue_result = (
+                                    run_continue_safely(
+                                        selected_workspace
+                                    )
+                                )
+
+                            continue_stdout = (
+                                continue_result.stdout.strip()
+                            )
+
+                            continue_stderr = (
+                                continue_result.stderr.strip()
+                            )
+
+                            if continue_result.returncode == 0:
+                                st.success(
+                                    "Continue safely completed."
                                 )
                             else:
-                                st.info(
-                                    "The applied patch passed post-apply "
-                                    "validation. Continue safely to determine "
-                                    "the next bounded development action."
+                                st.error(
+                                    "Continue safely failed with "
+                                    f"exit code "
+                                    f"{continue_result.returncode}."
                                 )
 
-                            continue_after_apply_clicked = st.button(
-                                "Continue safely",
-                                key=(
-                                    "post-apply-continue-"
-                                    f"{patch_id}"
-                                ),
-                                type="primary",
+                            parsed_continue = (
+                                parse_continue_milestone_output(
+                                    continue_stdout
+                                )
                             )
 
-                            if continue_after_apply_clicked:
-                                with st.spinner(
-                                    "World OS Dev Agent is determining "
-                                    "the next bounded development action..."
-                                ):
-                                    continue_result = (
-                                        run_continue_safely(
-                                            selected_workspace
-                                        )
-                                    )
-
-                                continue_stdout = (
-                                    continue_result.stdout.strip()
+                            if parsed_continue.objective:
+                                st.markdown(
+                                    "**Selected objective**"
+                                )
+                                st.write(
+                                    parsed_continue.objective
                                 )
 
-                                continue_stderr = (
-                                    continue_result.stderr.strip()
+                            if parsed_continue.next_objective:
+                                st.markdown(
+                                    "**Next objective**"
+                                )
+                                st.write(
+                                    parsed_continue.next_objective
                                 )
 
-                                if continue_result.returncode == 0:
-                                    st.success(
-                                        "Continue safely completed."
-                                    )
-                                else:
-                                    st.error(
-                                        "Continue safely failed with "
-                                        f"exit code "
-                                        f"{continue_result.returncode}."
-                                    )
-
-                                parsed_continue = (
-                                    parse_continue_milestone_output(
-                                        continue_stdout
-                                    )
+                            if parsed_continue.next_action:
+                                st.write(
+                                    "**Next action:** "
+                                    f"{parsed_continue.next_action}"
                                 )
 
-                                if parsed_continue.objective:
-                                    st.markdown(
-                                        "**Selected objective**"
-                                    )
-                                    st.write(
-                                        parsed_continue.objective
-                                    )
+                            if parsed_continue.patch_id:
+                                st.write(
+                                    "**Patch ID:** "
+                                    f"{parsed_continue.patch_id}"
+                                )
 
-                                if parsed_continue.next_objective:
-                                    st.markdown(
-                                        "**Next objective**"
-                                    )
-                                    st.write(
-                                        parsed_continue.next_objective
-                                    )
+                            if parsed_continue.target_file:
+                                st.write(
+                                    "**Target file:** "
+                                    f"{parsed_continue.target_file}"
+                                )
 
-                                if parsed_continue.next_action:
-                                    st.write(
-                                        "**Next action:** "
-                                        f"{parsed_continue.next_action}"
-                                    )
+                            if parsed_continue.status:
+                                st.write(
+                                    "**Status:** "
+                                    f"{parsed_continue.status}"
+                                )
 
-                                if parsed_continue.patch_id:
-                                    st.write(
-                                        "**Patch ID:** "
-                                        f"{parsed_continue.patch_id}"
-                                    )
+                            with st.expander(
+                                "Show Continue safely output"
+                            ):
+                                st.code(
+                                    continue_stdout
+                                    or "<no stdout>",
+                                    language="text",
+                                )
 
-                                if parsed_continue.target_file:
-                                    st.write(
-                                        "**Target file:** "
-                                        f"{parsed_continue.target_file}"
-                                    )
-
-                                if parsed_continue.status:
-                                    st.write(
-                                        "**Status:** "
-                                        f"{parsed_continue.status}"
-                                    )
-
+                            if continue_stderr:
                                 with st.expander(
-                                    "Show Continue safely output"
+                                    "Show Continue safely stderr"
                                 ):
                                     st.code(
-                                        continue_stdout
-                                        or "<no stdout>",
+                                        continue_stderr,
                                         language="text",
                                     )
 
-                                if continue_stderr:
-                                    with st.expander(
-                                        "Show Continue safely stderr"
-                                    ):
-                                        st.code(
-                                            continue_stderr,
-                                            language="text",
-                                        )
+                    elif not post_apply_validated:
+                        st.warning(
+                            "Post-apply progression metadata exists, "
+                            "but validation is not confirmed."
+                        )
 
-                        elif not post_apply_validated:
-                            st.warning(
-                                "Post-apply progression metadata exists, "
-                                "but validation is not confirmed."
-                            )
+            elif status == "ROLLED_BACK":
+                st.warning(
+                    "Patch apply failed and source was rolled back."
+                )
 
-                elif status == "ROLLED_BACK":
-                    st.warning(
-                        "Patch apply failed and source was rolled back."
-                    )
+            elif status == "ROLLBACK_FAILED":
+                st.error(
+                    "CRITICAL: rollback failed."
+                )
 
-                elif status == "ROLLBACK_FAILED":
-                    st.error(
-                        "CRITICAL: rollback failed."
-                    )
-
-                else:
-                    st.info(
-                        f"Current status: {status}"
-                    )
+            else:
+                st.info(
+                    f"Current status: {status}"
+                )

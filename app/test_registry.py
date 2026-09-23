@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from app.test_execution_validation import is_test_execution_validated
 from app.workspace_registry import get_workspace_profile
 
 
@@ -327,7 +328,11 @@ def inspect_repository_test_registry(
                 declared_focused_modules=declared_focused_modules,
                 has_main_guard=has_main_guard,
                 compile_target=relative_path,
-                execution_validated=False,
+                execution_validated=is_test_execution_validated(
+                    workspace.name,
+                    path.stem,
+                    relative_path,
+                ),
             )
         )
 
