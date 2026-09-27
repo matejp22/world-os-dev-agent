@@ -224,7 +224,13 @@ def _validate_candidate_overlay(
     workspace: Path,
     candidate_target_file: str | None,
     candidate_file: str | os.PathLike[str] | None,
+    allow_missing_candidate_target: bool,
 ) -> tuple[str, Path] | None:
+    if type(allow_missing_candidate_target) is not bool:
+        raise RuntimeError(
+            "allow_missing_candidate_target must be a boolean."
+        )
+
     if (
         candidate_target_file is None
         and candidate_file is None
@@ -294,15 +300,34 @@ def _validate_candidate_overlay(
             "candidate_target_file escapes the registered workspace."
         ) from exc
 
-    if not target.exists():
-        raise RuntimeError(
-            "candidate_target_file does not exist."
-        )
+    if target.exists():
+        if not target.is_file():
+            raise RuntimeError(
+                "candidate_target_file must be a regular file."
+            )
+    else:
+        if allow_missing_candidate_target is not True:
+            raise RuntimeError(
+                "candidate_target_file does not exist."
+            )
 
-    if not target.is_file():
-        raise RuntimeError(
-            "candidate_target_file must be a regular file."
-        )
+        parent = target.parent
+
+        try:
+            parent.relative_to(
+                workspace_resolved
+            )
+        except ValueError as exc:
+            raise RuntimeError(
+                "candidate_target_file parent escapes the registered "
+                "workspace."
+            ) from exc
+
+        if not parent.exists() or not parent.is_dir():
+            raise RuntimeError(
+                "Missing candidate target parent must be an existing "
+                "directory inside the registered workspace."
+            )
 
     candidate = Path(
         candidate_file
@@ -430,7 +455,13 @@ def execute_registered_tests(
     timeout_seconds: int = 60,
     candidate_target_file: str | None = None,
     candidate_file: str | os.PathLike[str] | None = None,
+    allow_missing_candidate_target: bool = False,
 ) -> TestExecutionBatchResult:
+    if type(allow_missing_candidate_target) is not bool:
+        raise RuntimeError(
+            "allow_missing_candidate_target must be a boolean."
+        )
+
     _validate_registry(
         registry
     )
@@ -464,6 +495,7 @@ def execute_registered_tests(
         workspace,
         candidate_target_file,
         candidate_file,
+        allow_missing_candidate_target,
     )
 
     results: list[TestExecutionResult] = []

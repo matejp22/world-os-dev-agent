@@ -13,6 +13,9 @@ from app.compile_checks import (
     execute_compile_checks,
     plan_compile_checks,
 )
+from app.data_file_recovery_orchestrator import (
+    run_data_file_recovery_cycle,
+)
 from app.dev_task_state import (
     execute_task_state_transition,
     load_resolved_task_state,
@@ -37,6 +40,12 @@ from app.workspace_registry import (
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 NO_NEW_MILESTONE = "NO_NEW_MILESTONE"
+
+
+def _run_data_file_recovery_preflight():
+    return run_data_file_recovery_cycle(
+        queue_dir=PROJECT_ROOT / "pending_patches",
+    )
 
 
 def _extract_planned_objective(
@@ -896,6 +905,19 @@ def run_continue_milestone(
         print(
             "Production autonomy gate returned an unsupported decision. "
             "Progression stopped safely."
+        )
+        return 1
+
+    try:
+        _run_data_file_recovery_preflight()
+    except Exception as exc:
+        print(
+            f"DATA_FILE recovery preflight failed: {exc}"
+        )
+        print(
+            "Progression stopped safely. No new patch generation, approval, "
+            "apply, Git write, database write, Supabase write, or production "
+            "write was performed after the recovery failure."
         )
         return 1
 

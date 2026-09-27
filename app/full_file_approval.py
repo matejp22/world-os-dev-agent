@@ -298,6 +298,9 @@ def approve_record(
             target_file=preflight_target_file,
             candidate_target_file=preflight_target_file,
             candidate_file=candidate_file,
+            allow_missing_candidate_target=(
+                format_version == "NEW_FILE_V2"
+            ),
         )
 
         persist_patch_quality_evidence(

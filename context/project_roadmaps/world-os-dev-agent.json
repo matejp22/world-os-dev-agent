@@ -883,14 +883,14 @@
       "title": "Automatic Infrastructure Recovery Loop Production-Ready",
       "kind": "MILESTONE",
       "parent_id": "group-self-verification-infrastructure-recovery",
-      "status": "NOT_STARTED",
+      "status": "COMPLETED",
       "weight": 5.0,
       "dependencies": [
         "milestone-quality-evidence-revalidation"
       ],
-      "verification_status": "PENDING",
-      "patch_id": null,
-      "completed_at": null
+      "verification_status": "PASSED",
+      "patch_id": "9bc2fba2-47d5-43e2-b3b4-75a006aacaa1",
+      "completed_at": "2026-09-27T19:38:26.170139+00:00"
     },
     {
       "node_id": "milestone-console-patch-review-scalability",

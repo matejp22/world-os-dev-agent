@@ -26,12 +26,15 @@ def _write_record(
     tmp_path: Path,
     *,
     include_quality_evidence: bool = True,
+    format_version: str = "FULL_FILE_V2",
 ) -> Path:
     queue_dir = (tmp_path / "pending_patches").resolve()
     queue_dir.mkdir()
 
     target_file = (tmp_path / "target.py").resolve()
-    target_file.write_text("VALUE = 1\n", encoding="utf-8")
+
+    if format_version == "FULL_FILE_V2":
+        target_file.write_text("VALUE = 1\n", encoding="utf-8")
 
     candidate_file = (tmp_path / "candidate.py").resolve()
     candidate_file.write_text("VALUE = 2\n", encoding="utf-8")
@@ -44,7 +47,7 @@ def _write_record(
 
     record: dict[str, Any] = {
         "patch_id": _PATCH_ID,
-        "format_version": "FULL_FILE_V2",
+        "format_version": format_version,
         "status": "READY_FOR_HUMAN_REVIEW",
         "compile_passed": True,
         "semantic_review": {
@@ -53,11 +56,15 @@ def _write_record(
         },
         "workspace_name": "world-os-dev-agent",
         "target_file": str(target_file),
-        "original_sha256": full_file_approval.sha256_file(target_file),
         "candidate_sha256": full_file_approval.sha256_file(candidate_file),
         "candidate_file": str(candidate_file),
         "diff_file": str(diff_file),
     }
+
+    if format_version == "FULL_FILE_V2":
+        record["original_sha256"] = full_file_approval.sha256_file(
+            target_file
+        )
 
     if include_quality_evidence:
         record["quality_evidence"] = dict(_PASS_QUALITY_EVIDENCE)
@@ -348,6 +355,7 @@ def test_missing_quality_evidence_runs_and_persists_before_gate(
         target_file: str,
         candidate_target_file: str,
         candidate_file: object,
+        allow_missing_candidate_target: bool = False,
     ) -> PatchQualityExecutionResult:
         runner_calls.append(
             {
@@ -355,6 +363,8 @@ def test_missing_quality_evidence_runs_and_persists_before_gate(
                 "target_file": target_file,
                 "candidate_target_file": candidate_target_file,
                 "candidate_file": candidate_file,
+                "allow_missing_candidate_target":
+                    allow_missing_candidate_target,
             }
         )
         return result
@@ -423,6 +433,7 @@ def test_missing_quality_evidence_runs_and_persists_before_gate(
         "target_file": target_file,
         "candidate_target_file": target_file,
         "candidate_file": candidate_file,
+        "allow_missing_candidate_target": False,
     }
     assert len(persistence_calls) == 1
     assert persistence_calls[0]["patch_id"] == _PATCH_ID
@@ -430,6 +441,125 @@ def test_missing_quality_evidence_runs_and_persists_before_gate(
     assert len(gate_calls) == 1
     assert approved_record["status"] == "APPROVED"
     assert _read_status(queue_file) == "APPROVED"
+
+
+def test_new_file_missing_quality_evidence_allows_missing_target(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    queue_file = _write_record(
+        monkeypatch,
+        tmp_path,
+        include_quality_evidence=False,
+        format_version="NEW_FILE_V2",
+    )
+    record = _read_record(queue_file)
+    workspace_name = record["workspace_name"]
+    target_file = record["target_file"]
+    candidate_file = record["candidate_file"]
+
+    assert not Path(target_file).exists()
+
+    runner_calls: list[dict[str, object]] = []
+    persistence_calls: list[dict[str, object]] = []
+
+    result = _execution_result(
+        workspace_name=workspace_name,
+        target_file=target_file,
+    )
+
+    def run_patch_quality_evidence(
+        *,
+        workspace_name: str,
+        target_file: str,
+        candidate_target_file: str,
+        candidate_file: object,
+        allow_missing_candidate_target: bool = False,
+    ) -> PatchQualityExecutionResult:
+        runner_calls.append(
+            {
+                "workspace_name": workspace_name,
+                "target_file": target_file,
+                "candidate_target_file": candidate_target_file,
+                "candidate_file": candidate_file,
+                "allow_missing_candidate_target":
+                    allow_missing_candidate_target,
+            }
+        )
+        return result
+
+    def persist_patch_quality_evidence(
+        *,
+        patch_id: str,
+        result: PatchQualityExecutionResult,
+    ) -> tuple[Path, dict[str, Any]]:
+        persistence_calls.append(
+            {
+                "patch_id": patch_id,
+                "result": result,
+            }
+        )
+        updated_record = _read_record(queue_file)
+        updated_record["quality_evidence"] = dict(_PASS_QUALITY_EVIDENCE)
+        queue_file.write_text(
+            json.dumps(updated_record, sort_keys=True),
+            encoding="utf-8",
+        )
+        return queue_file, updated_record
+
+    def evaluate_patch_record_quality(
+        record: object,
+        **kwargs: object,
+    ) -> object:
+        assert isinstance(record, dict)
+        assert record.get("quality_evidence") == _PASS_QUALITY_EVIDENCE
+        return (
+            object(),
+            _quality_result(
+                verdict="PASS",
+                safe_for_human_approval=True,
+            ),
+        )
+
+    monkeypatch.setattr(
+        full_file_approval,
+        "run_patch_quality_evidence",
+        run_patch_quality_evidence,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        full_file_approval,
+        "persist_patch_quality_evidence",
+        persist_patch_quality_evidence,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        full_file_approval,
+        "evaluate_patch_record_quality",
+        evaluate_patch_record_quality,
+        raising=False,
+    )
+
+    _, approved_record = full_file_approval.approve_record(
+        _PATCH_ID,
+        _CONFIRMATION,
+    )
+
+    assert len(runner_calls) == 1
+    assert runner_calls[0] == {
+        "workspace_name": workspace_name,
+        "target_file": target_file,
+        "candidate_target_file": target_file,
+        "candidate_file": candidate_file,
+        "allow_missing_candidate_target": True,
+    }
+    assert len(persistence_calls) == 1
+    assert persistence_calls[0]["patch_id"] == _PATCH_ID
+    assert persistence_calls[0]["result"] is result
+    assert approved_record["status"] == "APPROVED"
+    assert _read_status(queue_file) == "APPROVED"
+    assert _read_record(queue_file)["quality_evidence"] == _PASS_QUALITY_EVIDENCE
+    assert not Path(target_file).exists()
 
 
 def test_existing_quality_evidence_skips_runner_and_persistence(

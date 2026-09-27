@@ -213,6 +213,56 @@ def _execute(
     )
 
 
+def _require_allow_missing_candidate_target_support() -> inspect.Parameter:
+    parameter = inspect.signature(
+        module.execute_registered_tests
+    ).parameters.get(
+        "allow_missing_candidate_target"
+    )
+
+    if parameter is None:
+        pytest.skip(
+            "allow_missing_candidate_target production support is "
+            "not implemented yet."
+        )
+
+    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    assert parameter.default is False
+    return parameter
+
+
+def _execute_missing_target_overlay(
+    workspace: Path,
+    *,
+    candidate_target_file: str,
+    candidate_file: Path | None,
+    entries: tuple[TestRegistryEntry, ...],
+    allow_missing_candidate_target: object = True,
+) -> object:
+    _require_allow_missing_candidate_target_support()
+
+    for entry in entries:
+        _assert_registered_test_file(workspace, entry)
+
+    registry = _registry(
+        "world-os-dev-agent",
+        workspace_path=workspace,
+        entries=entries,
+    )
+
+    return module.execute_registered_tests(
+        registry,
+        tuple(entry.test_id for entry in entries),
+        candidate_target_file=candidate_target_file,
+        candidate_file=(
+            None
+            if candidate_file is None
+            else str(candidate_file)
+        ),
+        allow_missing_candidate_target=allow_missing_candidate_target,
+    )
+
+
 def test_execution_workspace_allowlist_is_exact() -> None:
     assert module.EXECUTION_WORKSPACES == (
         _EXPECTED_EXECUTION_WORKSPACES
@@ -616,3 +666,186 @@ def test_candidate_overlay_preserves_canonical_workspace(
     assert canonical_result_after.passed is True
     assert target.read_bytes() == target_before
     assert unrelated.read_bytes() == unrelated_before
+
+
+def test_future_allow_missing_candidate_target_contract() -> None:
+    parameter = _require_allow_missing_candidate_target_support()
+
+    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    assert parameter.default is False
+
+
+def test_explicit_missing_target_overlay(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+
+    _write(workspace / "app" / "__init__.py", "")
+    _write(workspace / "app" / "sample" / "__init__.py", "")
+
+    candidate = _write(
+        tmp_path / "candidate.py",
+        "VALUE = 'candidate-only'\n",
+    )
+
+    test_file = _write(
+        workspace / "tests" / "test_candidate.py",
+        "from app.sample import new_module\n\n"
+        "def test_candidate():\n"
+        "    assert new_module.VALUE == 'candidate-only'\n",
+    )
+
+    entry = _entry(
+        imported_app_modules=("app.sample.new_module",),
+    )
+
+    assert not (
+        workspace / "app" / "sample" / "new_module.py"
+    ).exists()
+    _assert_regular_python_file(candidate)
+    _assert_regular_python_file(test_file)
+
+    batch = _execute_missing_target_overlay(
+        workspace,
+        candidate_target_file="app/sample/new_module.py",
+        candidate_file=candidate,
+        entries=(entry,),
+    )
+
+    assert batch.executed is True
+    assert batch.passed is True
+    assert batch.results[0].passed is True
+    assert not (
+        workspace / "app" / "sample" / "new_module.py"
+    ).exists()
+
+
+@pytest.mark.parametrize(
+    "candidate_target_file",
+    (
+        "../outside.py",
+        "app/sample/new_module.txt",
+    ),
+)
+def test_missing_target_overlay_path_security(
+    tmp_path: Path,
+    candidate_target_file: str,
+) -> None:
+    workspace = tmp_path / "workspace"
+    _write(workspace / "app" / "__init__.py", "")
+    _write(workspace / "app" / "sample" / "__init__.py", "")
+
+    test_file = _write(
+        workspace / "tests" / "test_candidate.py",
+        "def test_candidate():\n"
+        "    assert True\n",
+    )
+
+    candidate = _write(
+        tmp_path / "candidate.py",
+        "VALUE = 'candidate-only'\n",
+    )
+
+    entry = _entry(
+        imported_app_modules=("app.sample.new_module",),
+    )
+
+    _assert_regular_python_file(test_file)
+    _assert_regular_python_file(candidate)
+
+    with pytest.raises(RuntimeError):
+        _execute_missing_target_overlay(
+            workspace,
+            candidate_target_file=candidate_target_file,
+            candidate_file=candidate,
+            entries=(entry,),
+        )
+
+
+@pytest.mark.parametrize(
+    "candidate_file_kind",
+    (
+        "missing",
+        "directory",
+        "non_python",
+    ),
+)
+def test_missing_target_overlay_candidate_file_security(
+    tmp_path: Path,
+    candidate_file_kind: str,
+) -> None:
+    workspace = tmp_path / "workspace"
+    _write(workspace / "app" / "__init__.py", "")
+    _write(workspace / "app" / "sample" / "__init__.py", "")
+
+    test_file = _write(
+        workspace / "tests" / "test_candidate.py",
+        "def test_candidate():\n"
+        "    assert True\n",
+    )
+
+    entry = _entry()
+    _assert_regular_python_file(test_file)
+
+    if candidate_file_kind == "missing":
+        candidate_file = tmp_path / "missing.py"
+    elif candidate_file_kind == "directory":
+        candidate_file = tmp_path / "candidate_directory"
+        candidate_file.mkdir()
+    else:
+        candidate_file = _write(
+            tmp_path / "candidate.txt",
+            "not Python\n",
+        )
+
+    with pytest.raises(RuntimeError):
+        _execute_missing_target_overlay(
+            workspace,
+            candidate_target_file="app/sample/new_module.py",
+            candidate_file=candidate_file,
+            entries=(entry,),
+        )
+
+
+@pytest.mark.parametrize(
+    "allow_missing_candidate_target",
+    (None, 1, "true"),
+)
+def test_allow_missing_candidate_target_requires_strict_bool(
+    tmp_path: Path,
+    allow_missing_candidate_target: object,
+) -> None:
+    workspace = tmp_path / "workspace"
+    _write(workspace / "app" / "__init__.py", "")
+    _write(workspace / "app" / "sample" / "__init__.py", "")
+
+    candidate = _write(
+        tmp_path / "candidate.py",
+        "VALUE = 'candidate-only'\n",
+    )
+
+    test_file = _write(
+        workspace / "tests" / "test_candidate.py",
+        "from app.sample import new_module\n\n"
+        "def test_candidate():\n"
+        "    assert new_module.VALUE == 'candidate-only'\n",
+    )
+
+    entry = _entry(
+        imported_app_modules=("app.sample.new_module",),
+    )
+
+    assert not (
+        workspace / "app" / "sample" / "new_module.py"
+    ).exists()
+    _assert_regular_python_file(candidate)
+    _assert_regular_python_file(test_file)
+
+    with pytest.raises(RuntimeError):
+        _execute_missing_target_overlay(
+            workspace,
+            candidate_target_file="app/sample/new_module.py",
+            candidate_file=candidate,
+            entries=(entry,),
+            allow_missing_candidate_target=allow_missing_candidate_target,
+        )

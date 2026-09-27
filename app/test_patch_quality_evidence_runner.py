@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import importlib
 import importlib.util
+import inspect
 import os
 import sys
 from pathlib import Path
@@ -20,22 +21,13 @@ _CANONICAL_MODULE = "app.patch_quality_evidence_runner"
 
 
 def _load_runner_module() -> ModuleType:
-    try:
-        return importlib.import_module(_CANONICAL_MODULE)
-    except ModuleNotFoundError as exc:
-        if exc.name != _CANONICAL_MODULE:
-            raise
-
     candidate_value = os.environ.get(
         _BOOTSTRAP_ENV,
         "",
     ).strip()
 
     if not candidate_value:
-        raise RuntimeError(
-            "Canonical patch quality evidence runner is absent and "
-            f"{_BOOTSTRAP_ENV} was not supplied."
-        )
+        return importlib.import_module(_CANONICAL_MODULE)
 
     candidate = Path(candidate_value).resolve()
 
@@ -135,7 +127,9 @@ def _install_mocks(
         test_ids_arg: tuple[str, ...],
         *,
         timeout_seconds: int,
+        allow_missing_candidate_target: bool = False,
     ) -> BatchStub:
+        assert allow_missing_candidate_target is False
         batch = (
             batch_factory(test_ids_arg)
             if batch_factory is not None
@@ -199,7 +193,7 @@ def test_non_behavioral_target_requires_no_execution(
     monkeypatch.setattr(
         runner_module,
         "execute_registered_tests",
-        lambda _registry, _ids, *, timeout_seconds: calls.__setitem__(
+        lambda _registry, _ids, *, timeout_seconds, allow_missing_candidate_target=False: calls.__setitem__(
             "executor", calls["executor"] + 1
         ),
     )
@@ -317,6 +311,7 @@ def test_candidate_overlay_forwarded_to_focused_execution(
         timeout_seconds: int,
         candidate_target_file: str | None = None,
         candidate_file: object | None = None,
+        allow_missing_candidate_target: bool = False,
     ) -> BatchStub:
         executor_calls.append(
             (
@@ -437,6 +432,7 @@ def test_candidate_overlay_forwarded_to_focused_and_regression_execution(
         timeout_seconds: int,
         candidate_target_file: str | None = None,
         candidate_file: object | None = None,
+        allow_missing_candidate_target: bool = False,
     ) -> BatchStub:
         executor_calls.append(
             (
@@ -588,7 +584,9 @@ def test_focused_executor_exception_is_structured(
         test_ids_arg: tuple[str, ...],
         *,
         timeout_seconds: int,
+        allow_missing_candidate_target: bool = False,
     ) -> BatchStub:
+        assert allow_missing_candidate_target is False
         executor_calls.append((registry_arg, test_ids_arg, timeout_seconds))
         raise RuntimeError("execution rejected")
 
@@ -848,7 +846,7 @@ def test_input_validation(
     monkeypatch.setattr(
         runner_module,
         "execute_registered_tests",
-        lambda _registry, _ids, *, timeout_seconds: calls.__setitem__(
+        lambda _registry, _ids, *, timeout_seconds, allow_missing_candidate_target=False: calls.__setitem__(
             "executor", calls["executor"] + 1
         ),
     )
@@ -884,3 +882,184 @@ def test_input_validation(
             invalid_call()
 
     assert calls == {"inspect": 0, "selection": 0, "executor": 0}
+
+
+def test_candidate_overlay_and_allow_missing_candidate_target_true_is_propagated(
+    runner_module: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    parameter = inspect.signature(
+        runner_module.run_patch_quality_evidence
+    ).parameters.get(
+        "allow_missing_candidate_target"
+    )
+
+    if parameter is None:
+        pytest.skip(
+            "allow_missing_candidate_target production support is "
+            "not implemented yet."
+        )
+
+    registry = RegistryStub()
+    candidate_file = tmp_path / "candidate.py"
+    candidate_file.write_text(
+        "VALUE = 1\n",
+        encoding="utf-8",
+    )
+
+    executor_calls: list[
+        tuple[
+            object,
+            tuple[str, ...],
+            str | None,
+            object | None,
+            bool,
+        ]
+    ] = []
+
+    def fake_inspect(_workspace: str) -> RegistryStub:
+        return registry
+
+    def fake_select(
+        _registry: object,
+        _changed_files: tuple[str, ...],
+    ) -> SelectionStub:
+        return SelectionStub(
+            ("test_focus",),
+            ("test_regression",),
+        )
+
+    def fake_execute(
+        registry_arg: object,
+        test_ids_arg: tuple[str, ...],
+        *,
+        timeout_seconds: int,
+        candidate_target_file: str | None = None,
+        candidate_file: object | None = None,
+        allow_missing_candidate_target: bool = False,
+    ) -> BatchStub:
+        executor_calls.append(
+            (
+                registry_arg,
+                test_ids_arg,
+                candidate_target_file,
+                candidate_file,
+                allow_missing_candidate_target,
+            )
+        )
+        return BatchStub(
+            workspace_name="world-os-dev-agent",
+            requested_test_ids=test_ids_arg,
+            results=(),
+            passed=True,
+            executed=True,
+            reason="ok",
+        )
+
+    monkeypatch.setattr(
+        runner_module,
+        "inspect_repository_test_registry",
+        fake_inspect,
+    )
+    monkeypatch.setattr(
+        runner_module,
+        "plan_test_selection",
+        fake_select,
+    )
+    monkeypatch.setattr(
+        runner_module,
+        "execute_registered_tests",
+        fake_execute,
+    )
+
+    result = runner_module.run_patch_quality_evidence(
+        workspace_name="world-os-dev-agent",
+        target_file="app/example.py",
+        candidate_target_file="app/example.py",
+        candidate_file=candidate_file,
+        allow_missing_candidate_target=True,
+    )
+
+    assert executor_calls == [
+        (
+            registry,
+            ("test_focus",),
+            "app/example.py",
+            candidate_file,
+            True,
+        ),
+        (
+            registry,
+            ("test_regression",),
+            "app/example.py",
+            candidate_file,
+            True,
+        ),
+    ]
+    assert result.focused_tests_executed is True
+    assert result.focused_tests_passed is True
+    assert result.regression_tests_executed is True
+    assert result.regression_tests_passed is True
+
+
+@pytest.mark.parametrize(
+    "invalid_value",
+    (None, 1, "true"),
+)
+def test_allow_missing_candidate_target_requires_strict_bool(
+    runner_module: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    invalid_value: object,
+) -> None:
+    parameter = inspect.signature(
+        runner_module.run_patch_quality_evidence
+    ).parameters.get(
+        "allow_missing_candidate_target"
+    )
+
+    if parameter is None:
+        pytest.skip(
+            "allow_missing_candidate_target production support is "
+            "not implemented yet."
+        )
+
+    calls = {"inspect": 0, "selection": 0, "executor": 0}
+
+    monkeypatch.setattr(
+        runner_module,
+        "inspect_repository_test_registry",
+        lambda _workspace: calls.__setitem__(
+            "inspect",
+            calls["inspect"] + 1,
+        ),
+    )
+    monkeypatch.setattr(
+        runner_module,
+        "plan_test_selection",
+        lambda _registry, _files: calls.__setitem__(
+            "selection",
+            calls["selection"] + 1,
+        ),
+    )
+    monkeypatch.setattr(
+        runner_module,
+        "execute_registered_tests",
+        lambda *_args, **_kwargs: calls.__setitem__(
+            "executor",
+            calls["executor"] + 1,
+        ),
+    )
+
+    with pytest.raises(ValueError):
+        runner_module.run_patch_quality_evidence(
+            workspace_name="world-os-dev-agent",
+            target_file="app/example.py",
+            allow_missing_candidate_target=invalid_value,
+        )
+
+    assert calls == {
+        "inspect": 0,
+        "selection": 0,
+        "executor": 0,
+    }

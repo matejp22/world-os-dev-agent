@@ -33,6 +33,7 @@ def _validate_inputs(
     workspace_name: str,
     target_file: str,
     timeout_seconds: int,
+    allow_missing_candidate_target: bool,
 ) -> tuple[str, str]:
     if not isinstance(workspace_name, str) or not workspace_name.strip():
         raise ValueError("workspace_name must be a non-empty string.")
@@ -46,6 +47,11 @@ def _validate_inputs(
     if timeout_seconds < 1 or timeout_seconds > 300:
         raise ValueError(
             "timeout_seconds must be between 1 and 300."
+        )
+
+    if type(allow_missing_candidate_target) is not bool:
+        raise ValueError(
+            "allow_missing_candidate_target must be a boolean."
         )
 
     return workspace_name.strip(), target_file.strip()
@@ -127,6 +133,7 @@ def run_patch_quality_evidence(
     timeout_seconds: int = 60,
     candidate_target_file: str | None = None,
     candidate_file: str | PathLike[str] | None = None,
+    allow_missing_candidate_target: bool = False,
 ) -> PatchQualityExecutionResult:
     candidate_pair_supplied = (
         candidate_target_file is not None
@@ -151,6 +158,7 @@ def run_patch_quality_evidence(
         workspace_name=workspace_name,
         target_file=target_file,
         timeout_seconds=timeout_seconds,
+        allow_missing_candidate_target=allow_missing_candidate_target,
     )
 
     behavioral = _is_behavioral_source(target_file)
@@ -256,6 +264,9 @@ def run_patch_quality_evidence(
                 timeout_seconds=timeout_seconds,
                 candidate_target_file=candidate_target_file,
                 candidate_file=candidate_file,
+                allow_missing_candidate_target=(
+                    allow_missing_candidate_target
+                ),
             )
         else:
             focused_batch = execute_registered_tests(
@@ -347,6 +358,9 @@ def run_patch_quality_evidence(
                 timeout_seconds=timeout_seconds,
                 candidate_target_file=candidate_target_file,
                 candidate_file=candidate_file,
+                allow_missing_candidate_target=(
+                    allow_missing_candidate_target
+                ),
             )
         else:
             regression_batch = execute_registered_tests(
