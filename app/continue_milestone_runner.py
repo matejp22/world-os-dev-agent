@@ -7,7 +7,11 @@ import sys
 from pathlib import Path
 
 from app.ai_build_planner import plan_next_build
-from app.build_patch_orchestrator import BuildPatchResult, run_build_patch
+from app.build_patch_orchestrator import (
+    MAX_REVISIONS,
+    BuildPatchResult,
+    run_build_patch,
+)
 from app.ci_awareness import inspect_ci_awareness
 from app.compile_checks import (
     execute_compile_checks,
@@ -1046,6 +1050,134 @@ def run_continue_milestone(
             "database write, Supabase write, or production write was performed."
         )
         return 1
+
+    if (
+        patch_result.status == "DRAFT"
+        and patch_result.semantic_decision == "REVISE"
+    ):
+        revision_round = patch_result.revision_round
+
+        if not isinstance(revision_round, int) or isinstance(
+            revision_round,
+            bool,
+        ):
+            print(
+                "SELF-STEERING REVISION-BUDGET RECOVERY FAILED: "
+                "patch revision_round metadata is not a valid integer."
+            )
+            print(
+                "Progression stopped safely. No approval, apply, Git write, "
+                "database write, Supabase write, or production write was "
+                "performed."
+            )
+            return 1
+
+        if revision_round < 0:
+            print(
+                "SELF-STEERING REVISION-BUDGET RECOVERY FAILED: "
+                "patch revision_round metadata is negative."
+            )
+            print(
+                "Progression stopped safely. No approval, apply, Git write, "
+                "database write, Supabase write, or production write was "
+                "performed."
+            )
+            return 1
+
+        if revision_round >= MAX_REVISIONS:
+            print(
+                "Patch exhausted its semantic revision budget. "
+                "Starting one bounded self-steering recovery attempt."
+            )
+            print()
+
+            recovery_instruction = (
+                "Select exactly one corrected, smaller, or genuinely "
+                "different bounded development objective after semantic "
+                "revision budget exhaustion. Stay inside the same canonical "
+                "active milestone and persistent objective.\n\n"
+                "ACTIVE MILESTONE:\n"
+                f"{active_milestone}\n\n"
+                "PERSISTENT MILESTONE OBJECTIVE:\n"
+                f"{persistent_objective}\n\n"
+                "DEVELOPER INSTRUCTION:\n"
+                f"{developer_instruction}\n\n"
+                "PREVIOUS OBJECTIVE:\n"
+                f"{objective}\n\n"
+                "SEMANTIC REVIEW:\n"
+                f"{patch_result.semantic_review}\n\n"
+                "The previous DRAFT patch has exhausted its revision "
+                "budget. Do not retry or modify that patch. Correct the "
+                "issue by selecting one smaller or genuinely different "
+                "bounded objective. Return one bounded objective only."
+            )
+
+            try:
+                recovery_objective, recovery_patch_result = (
+                    _run_bounded_build_cycle(
+                        cycle_label=(
+                            "SELF-STEERING REVISION-BUDGET RECOVERY"
+                        ),
+                        planner_instruction=recovery_instruction,
+                        active_milestone=active_milestone,
+                        persistent_objective=persistent_objective,
+                        developer_instruction=developer_instruction,
+                        workspace_selection=workspace_selection,
+                        rejected_objective=objective,
+                        semantic_rejection_review=(
+                            patch_result.semantic_review
+                        ),
+                    )
+                )
+            except Exception as exc:
+                print(
+                    "SELF-STEERING REVISION-BUDGET RECOVERY FAILED: "
+                    f"{exc}"
+                )
+                print(
+                    "Progression stopped safely. No approval, apply, "
+                    "Git write, database write, Supabase write, or "
+                    "production write was performed."
+                )
+                return 1
+
+            if (
+                recovery_objective.strip().casefold()
+                == objective.strip().casefold()
+            ):
+                print(
+                    "SELF-STEERING REVISION-BUDGET RECOVERY FAILED: "
+                    "planner returned the same exhausted objective."
+                )
+                print(
+                    "Progression stopped safely. No approval, apply, "
+                    "Git write, database write, Supabase write, or "
+                    "production write was performed."
+                )
+                return 1
+
+            if (
+                recovery_patch_result.status
+                == "READY_FOR_HUMAN_REVIEW"
+            ):
+                print(
+                    "Self-steering revision-budget recovery produced a "
+                    "patch ready for explicit human review. No approval "
+                    "or apply action was performed."
+                )
+                return 0
+
+            print(
+                "SELF-STEERING REVISION-BUDGET RECOVERY FAILED: "
+                "the single recovery cycle did not produce a "
+                "READY_FOR_HUMAN_REVIEW patch."
+            )
+            print(
+                "Progression stopped safely. No approval, apply, Git write, "
+                "database write, Supabase write, or production write was "
+                "performed."
+            )
+            return 1
 
     print(
         "Patch remains in DRAFT status. "
