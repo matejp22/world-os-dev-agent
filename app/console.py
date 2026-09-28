@@ -1753,10 +1753,6 @@ if console_section == "Patch review":
                                 "applied_sha256": applied_sha256,
                             }
 
-                            st.session_state[
-                                "patch-review-category"
-                            ] = "Actionable patches"
-
                             st.rerun()
                     else:
                         st.error(
