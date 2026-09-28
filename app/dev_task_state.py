@@ -596,6 +596,58 @@ def load_resolved_task_state(
         live_state = load_live_state()
         persisted_state = load_task_state()
 
+        if (
+            persisted_state is not None
+            and persisted_state.status in {
+                "ACTIVE",
+                "NO_NEW_MILESTONE",
+            }
+        ):
+            roadmap = load_project_roadmap(
+                "world-os-dev-agent"
+            )
+
+            progress = calculate_project_progress(
+                roadmap
+            )
+
+            milestones = tuple(
+                node
+                for node in roadmap.nodes
+                if node.kind == "MILESTONE"
+            )
+
+            if (
+                milestones
+                and progress.current_milestone_id is None
+                and all(
+                    node.status == "COMPLETED"
+                    and node.verification_status == "PASSED"
+                    for node in milestones
+                )
+            ):
+                reconciled_state = DevTaskState(
+                    milestone=None,
+                    objective=None,
+                    previous_milestone=None,
+                    status="NO_NEW_MILESTONE",
+                )
+
+                validate_task_state(
+                    reconciled_state
+                )
+
+                if persisted_state.status == "NO_NEW_MILESTONE":
+                    return ResumeResolution(
+                        decision="RESUME_PERSISTED",
+                        state=persisted_state,
+                    )
+
+                return ResumeResolution(
+                    decision="COMPLETE_TO_NO_NEW_MILESTONE",
+                    state=reconciled_state,
+                )
+
         return resolve_task_state(
             live_state,
             persisted_state,

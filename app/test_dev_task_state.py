@@ -5,12 +5,14 @@ import json
 from app.dev_task_state import (
     DevTaskState,
     derive_task_state,
+    load_resolved_task_state,
     plan_task_state_transition,
     resolve_task_state,
     task_state_from_dict,
     task_state_to_dict,
 )
 from app.live_state import LiveState
+from app.roadmap_types import ProjectRoadmap, RoadmapNode
 
 
 V09_MILESTONE = (
@@ -93,6 +95,24 @@ def complete_v20_live_state() -> LiveState:
         current_objective=V20_OBJECTIVE,
         current_objective_status="COMPLETE",
         immediate_next_objective=None,
+    )
+
+
+def terminal_roadmap() -> ProjectRoadmap:
+    return ProjectRoadmap(
+        project_id="world-os-dev-agent",
+        title="Terminal roadmap",
+        workspace_name="world-os-dev-agent",
+        nodes=(
+            RoadmapNode(
+                node_id="terminal-milestone",
+                title="Terminal milestone",
+                kind="MILESTONE",
+                status="COMPLETED",
+                weight=1,
+                verification_status="PASSED",
+            ),
+        ),
     )
 
 
@@ -354,5 +374,70 @@ def run_tests() -> None:
     print("V0.9 DEV TASK STATE REGRESSION: PASS")
 
 
+def run_terminal_roadmap_reconciliation_tests() -> None:
+    import app.dev_task_state as task_state_module
+
+    original_loader = task_state_module.load_project_roadmap
+    original_live_loader = task_state_module.load_live_state
+    original_state_loader = task_state_module.load_task_state
+
+    stale_state = DevTaskState(
+        milestone=V20_MILESTONE,
+        objective=V20_OBJECTIVE,
+        status="ACTIVE",
+    )
+
+    terminal_state = DevTaskState(
+        milestone=None,
+        objective=None,
+        previous_milestone=None,
+        status="NO_NEW_MILESTONE",
+    )
+
+    try:
+        task_state_module.load_project_roadmap = (
+            lambda workspace_name: terminal_roadmap()
+        )
+        task_state_module.load_live_state = (
+            lambda: complete_v20_live_state()
+        )
+        task_state_module.load_task_state = (
+            lambda workspace_name=None: stale_state
+        )
+
+        stale_result = load_resolved_task_state(
+            "world-os-dev-agent"
+        )
+
+        assert (
+            stale_result.decision
+            == "COMPLETE_TO_NO_NEW_MILESTONE"
+        )
+        assert stale_result.state.status == "NO_NEW_MILESTONE"
+        assert stale_result.state.milestone is None
+        assert stale_result.state.objective is None
+        assert stale_result.state.previous_milestone is None
+
+        task_state_module.load_task_state = (
+            lambda workspace_name=None: terminal_state
+        )
+
+        terminal_result = load_resolved_task_state(
+            "world-os-dev-agent"
+        )
+
+        assert terminal_result.decision == "RESUME_PERSISTED"
+        assert terminal_result.state == terminal_state
+
+        print(
+            "TEST 16 TERMINAL ROADMAP RECONCILIATION: PASS"
+        )
+    finally:
+        task_state_module.load_project_roadmap = original_loader
+        task_state_module.load_live_state = original_live_loader
+        task_state_module.load_task_state = original_state_loader
+
+
 if __name__ == "__main__":
     run_tests()
+    run_terminal_roadmap_reconciliation_tests()
