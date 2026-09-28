@@ -9,6 +9,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from app.build_patch_orchestrator import run_build_patch
 from app.continue_status_parser import (
     parse_continue_milestone_output,
 )
@@ -1117,16 +1118,74 @@ if console_section == "Run":
         ),
     )
 
-    if run_clicked or continue_clicked:
+    build_patch_clicked = st.button(
+        "Build patch candidate",
+        disabled=(
+            not selected_workspace.writable_via_dev_agent
+        ),
+        help=(
+            None
+            if selected_workspace.writable_via_dev_agent
+            else "This workspace is READ_ONLY."
+        ),
+    )
+
+    if run_clicked or continue_clicked or build_patch_clicked:
         clean_goal = goal.strip()
 
-        if run_clicked and not clean_goal:
+        if (
+            (run_clicked or build_patch_clicked)
+            and not clean_goal
+        ):
             st.error(
                 "Please enter a development goal."
             )
             st.stop()
 
-        if continue_clicked:
+        if build_patch_clicked:
+            with st.spinner(
+                "World OS Dev Agent is building a patch candidate..."
+            ):
+                try:
+                    patch_result = run_build_patch(
+                        clean_goal,
+                        selected_workspace_name,
+                    )
+                except Exception as exc:
+                    st.error(
+                        "Patch candidate creation failed: "
+                        f"{type(exc).__name__}: {exc}"
+                    )
+                else:
+                    st.subheader("Patch candidate")
+
+                    st.write(
+                        f"**Patch ID:** {patch_result.patch_id}"
+                    )
+                    st.write(
+                        f"**Target file:** {patch_result.target_file}"
+                    )
+                    st.write(
+                        f"**Format:** {patch_result.format_version}"
+                    )
+                    st.write(
+                        "**Semantic decision:** "
+                        f"{patch_result.semantic_decision}"
+                    )
+                    st.write(
+                        f"**Status:** {patch_result.status}"
+                    )
+                    st.write(
+                        f"**compile_passed:** "
+                        f"{patch_result.compile_passed}"
+                    )
+
+                    st.info(
+                        "Patch candidate created without approval or apply. "
+                        "Continue in Patch review for human review."
+                    )
+
+        elif continue_clicked:
             with st.spinner(
                 "World OS Dev Agent is continuing the current milestone..."
             ):
