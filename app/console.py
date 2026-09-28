@@ -16,7 +16,6 @@ from app.full_file_approval import (
     CONFIRM_PHRASE as PATCH_APPROVAL_CONFIRM_PHRASE,
     approve_record,
 )
-
 from app.dev_task_state import (
     load_resolved_task_state,
 )
@@ -444,6 +443,145 @@ def render_workspace_context(
     )
 
 
+def render_milestone_control_center() -> None:
+    st.subheader("Milestone Control Center")
+
+    try:
+        roadmap = load_project_roadmap(
+            "world-os-research-engine"
+        )
+        progress = calculate_project_progress(
+            roadmap
+        )
+    except Exception as exc:
+        st.warning(
+            "Roadmap resolution failed; milestone and patch relevance "
+            f"were not inferred: {type(exc).__name__}: {exc}"
+        )
+        st.caption(
+            "Read-only panel. Data comes from the canonical roadmap and "
+            "persisted patch queue. Candidate quality evidence is not "
+            "permanent post-apply verification."
+        )
+        return
+
+    milestone = next(
+        (
+            node
+            for node in roadmap.nodes
+            if (
+                node.kind == "MILESTONE"
+                and node.node_id == progress.current_milestone_id
+            )
+        ),
+        None,
+    )
+
+    if milestone is None:
+        st.info("No current milestone is declared.")
+        st.caption(
+            "Read-only panel. Data comes from the canonical roadmap and "
+            "persisted patch queue. Candidate quality evidence is not "
+            "permanent post-apply verification."
+        )
+        return
+
+    st.write(f"**Title:** {milestone.title}")
+    st.write(f"**Milestone ID:** {milestone.node_id}")
+    st.write(f"**Project completion:** {progress.completion_percent:.1f}%")
+    st.write(f"**Milestone status:** {milestone.status}")
+    st.write(
+        f"**Verification status:** {milestone.verification_status}"
+    )
+
+    relevant = [
+        (path, record)
+        for path, record in load_patch_records()
+        if (
+            record.get("workspace_name")
+            == "world-os-research-engine"
+            and isinstance(record.get("goal"), str)
+            and record["goal"].strip()
+            and milestone.title.casefold()
+            in record["goal"].casefold()
+        )
+    ]
+
+    statuses = (
+        "APPLIED",
+        "READY_FOR_HUMAN_REVIEW",
+        "APPROVED",
+        "DRAFT",
+        "REJECTED",
+    )
+
+    counts = {
+        status: sum(
+            record.get("status") == status
+            for _, record in relevant
+        )
+        for status in statuses
+    }
+
+    st.write(
+        f"Relevant patches: {len(relevant)} | "
+        f"APPLIED: {counts['APPLIED']} | "
+        "READY_FOR_HUMAN_REVIEW: "
+        f"{counts['READY_FOR_HUMAN_REVIEW']} | "
+        f"APPROVED: {counts['APPROVED']} | "
+        f"DRAFT: {counts['DRAFT']} | "
+        f"REJECTED: {counts['REJECTED']}"
+    )
+
+    if relevant:
+        latest = relevant[0][1]
+
+        st.write(
+            "**Latest relevant patch:** "
+            f"{latest.get('patch_id', '<unknown>')} | "
+            f"{latest.get('target_file', '<unknown>')} | "
+            f"{latest.get('status', '<unknown>')} | "
+            "revision_round="
+            f"{latest.get('revision_round', '<unknown>')}"
+        )
+
+        st.markdown("**Persisted candidate quality evidence**")
+        evidence = latest.get("quality_evidence")
+
+        if isinstance(evidence, dict):
+            for key in (
+                "focused_tests_executed",
+                "focused_tests_passed",
+                "regression_tests_executed",
+                "regression_tests_passed",
+            ):
+                st.write(
+                    f"{key}: "
+                    f"{evidence.get(key, '<not recorded>')}"
+                )
+        else:
+            st.write("<not recorded>")
+
+        st.markdown("**Latest relevant patches**")
+
+        for _, record in relevant[:5]:
+            st.write(
+                f"{record.get('patch_id', '<unknown>')} | "
+                f"{record.get('status', '<unknown>')} | "
+                f"{record.get('target_file', '<unknown>')} | "
+                "revision_round="
+                f"{record.get('revision_round', '<unknown>')}"
+            )
+    else:
+        st.write("No relevant persisted patches found.")
+
+    st.caption(
+        "Read-only panel. Data comes from the canonical roadmap and "
+        "persisted patch queue. Candidate quality evidence is not "
+        "permanent post-apply verification."
+    )
+
+
 st.set_page_config(
     page_title="World OS Dev Agent",
     layout="wide",
@@ -601,6 +739,7 @@ else:
 
         st.markdown("**Previous milestone**")
         st.write(task_state.previous_milestone or "<none>")
+
         try:
             project_roadmap = load_project_roadmap(
                 selected_workspace_name
@@ -621,7 +760,6 @@ else:
 
 if selected_workspace_name == "world-os-dev-agent":
     st.subheader("Milestone handoff")
-
 
     try:
         if not LIVE_STATE_PATH.exists():
@@ -788,7 +926,6 @@ if selected_workspace_name == "world-os-dev-agent":
                 "No LIVE_STATE write can be performed."
             )
 
-
 else:
     st.subheader("Project milestone state")
 
@@ -863,10 +1000,10 @@ else:
             "Dev Agent LIVE_STATE milestone handoff applies only to "
             "world-os-dev-agent and is not shown here."
         )
+
 st.divider()
 
 st.subheader("Workspace target")
-
 
 workspace_profile = selected_workspace.workspace
 
@@ -938,7 +1075,6 @@ st.caption(
     "Lazy console mode: only the selected section runs on this render."
 )
 
-
 if console_section == "Roadmap":
     render_world_os_roadmap_panel(
         master_roadmap_path=(
@@ -954,7 +1090,6 @@ if console_section == "Roadmap":
         },
     )
 
-
 if console_section == "Run":
     goal = st.text_area(
         "Development goal",
@@ -966,6 +1101,9 @@ if console_section == "Run":
         "Run safe investigation",
         type="primary",
     )
+
+    if selected_workspace_name == "world-os-research-engine":
+        render_milestone_control_center()
 
     continue_clicked = st.button(
         "Continue current milestone",
@@ -1191,7 +1329,6 @@ if console_section == "Run":
                         language="text",
                     )
 
-
 if console_section == "Session history":
     st.subheader("Recent autonomous sessions")
 
@@ -1231,7 +1368,6 @@ if console_section == "Session history":
                     content,
                     language="text",
                 )
-
 
 if console_section == "Patch review":
     st.subheader("Patch control")
