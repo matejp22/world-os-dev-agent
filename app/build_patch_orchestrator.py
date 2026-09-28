@@ -50,6 +50,13 @@ class BuildPatchResult:
     supersedes_patch_id: str | None = None
 
 
+@dataclass
+class _CandidateAttempt:
+    result: BuildPatchResult
+    candidate_text: str
+    diff: str
+
+
 def semantic_decision(review: str) -> str:
     if not review.strip():
         return "UNKNOWN"
@@ -238,6 +245,182 @@ def _parse_revised_content(
     )
 
 
+def _build_candidate_attempt(
+    *,
+    clean_goal: str,
+    canonical_workspace_name: str,
+    target_file: str,
+    target_path: Path,
+    target_exists: bool,
+    format_version: str,
+    new_content: str,
+    revision_round: int,
+    lineage: list[str],
+    previous_patch_id: str | None,
+) -> _CandidateAttempt:
+    patch_id = str(
+        uuid4()
+    )
+
+    if target_exists:
+        (
+            original_bytes,
+            candidate_bytes,
+        ) = normalize_candidate(
+            target_path=target_path,
+            new_content=new_content,
+        )
+
+        original_sha: str | None = sha256_bytes(
+            original_bytes
+        )
+
+        candidate_sha = sha256_bytes(
+            candidate_bytes
+        )
+
+        if candidate_sha == original_sha:
+            raise RuntimeError(
+                "Candidate contains no changes."
+            )
+
+    else:
+        original_bytes = b""
+        original_sha = None
+
+        candidate_bytes = normalize_new_candidate(
+            new_content
+        )
+
+        candidate_sha = sha256_bytes(
+            candidate_bytes
+        )
+
+    candidate_file = (
+        TEMP_DIR
+        / f"{patch_id}.candidate.py"
+    )
+
+    candidate_file.write_bytes(
+        candidate_bytes
+    )
+
+    old_text = original_bytes.decode(
+        "utf-8-sig"
+    )
+
+    candidate_text = candidate_bytes.decode(
+        "utf-8-sig"
+    )
+
+    diff = build_unified_diff(
+        target_file=target_file,
+        old_content=old_text,
+        new_content=candidate_text,
+    )
+
+    diff_file = (
+        TEMP_DIR
+        / f"{patch_id}.diff"
+    )
+
+    diff_file.write_text(
+        diff,
+        encoding="utf-8",
+    )
+
+    print(
+        f"BUILD PATCH: revision round {revision_round} - py_compile...",
+        flush=True,
+    )
+
+    compile_passed, compile_output = compile_candidate(
+        candidate_file
+    )
+
+    if not compile_passed:
+        semantic_review = compile_output
+        decision = "COMPILE_FAILED"
+        status = (
+            "REVISION_LIMIT_REACHED"
+            if revision_round >= MAX_REVISIONS
+            else "DRAFT"
+        )
+
+    else:
+        print(
+            f"BUILD PATCH: revision round {revision_round} "
+            "- semantic review...",
+            flush=True,
+        )
+
+        semantic_review = review_full_file_candidate(
+            goal=clean_goal,
+            target_file=target_file,
+            diff=diff,
+        )
+
+        decision = semantic_decision(
+            semantic_review
+        )
+
+        print(
+            f"BUILD PATCH: semantic decision = {decision}",
+            flush=True,
+        )
+
+        if decision == "APPROVE_FOR_HUMAN_REVIEW":
+            status = "READY_FOR_HUMAN_REVIEW"
+
+        elif decision == "REJECT":
+            status = "REJECTED"
+
+        elif decision == "REVISE":
+            status = (
+                "REVISION_LIMIT_REACHED"
+                if revision_round >= MAX_REVISIONS
+                else "DRAFT"
+            )
+
+        else:
+            status = "DRAFT"
+
+    result = BuildPatchResult(
+        patch_id=patch_id,
+        goal=clean_goal,
+        workspace_name=canonical_workspace_name,
+        target_file=target_file,
+        original_sha256=original_sha,
+        candidate_sha256=candidate_sha,
+        candidate_file=str(
+            candidate_file
+        ),
+        diff_file=str(
+            diff_file
+        ),
+        compile_passed=compile_passed,
+        semantic_decision=decision,
+        semantic_review=semantic_review,
+        revision_round=revision_round,
+        status=status,
+        format_version=format_version,
+        superseded_patch_ids=list(
+            lineage
+        ),
+        supersedes_patch_id=previous_patch_id,
+    )
+
+    _write_queue_record(
+        result
+    )
+
+    return _CandidateAttempt(
+        result=result,
+        candidate_text=candidate_text,
+        diff=diff,
+    )
+
+
 def run_build_patch(
     goal: str,
     workspace_name: str = "world-os-dev-agent",
@@ -324,147 +507,24 @@ def run_build_patch(
         0,
         MAX_REVISIONS + 1,
     ):
-        patch_id = str(
-            uuid4()
-        )
-
-        if target_exists:
-            (
-                original_bytes,
-                candidate_bytes,
-            ) = normalize_candidate(
-                target_path=target_path,
-                new_content=new_content,
-            )
-
-            original_sha: str | None = sha256_bytes(
-                original_bytes
-            )
-
-            candidate_sha = sha256_bytes(
-                candidate_bytes
-            )
-
-            if candidate_sha == original_sha:
-                raise RuntimeError(
-                    "Candidate contains no changes."
-                )
-
-        else:
-            original_bytes = b""
-            original_sha = None
-
-            candidate_bytes = normalize_new_candidate(
-                new_content
-            )
-
-            candidate_sha = sha256_bytes(
-                candidate_bytes
-            )
-
-        candidate_file = (
-            TEMP_DIR
-            / f"{patch_id}.candidate.py"
-        )
-
-        candidate_file.write_bytes(
-            candidate_bytes
-        )
-
-        old_text = original_bytes.decode(
-            "utf-8-sig"
-        )
-
-        candidate_text = candidate_bytes.decode(
-            "utf-8-sig"
-        )
-
-        diff = build_unified_diff(
+        attempt = _build_candidate_attempt(
+            clean_goal=clean_goal,
+            canonical_workspace_name=canonical_workspace_name,
             target_file=target_file,
-            old_content=old_text,
-            new_content=candidate_text,
+            target_path=target_path,
+            target_exists=target_exists,
+            format_version=format_version,
+            new_content=new_content,
+            revision_round=revision_round,
+            lineage=lineage,
+            previous_patch_id=previous_patch_id,
         )
 
-        diff_file = (
-            TEMP_DIR
-            / f"{patch_id}.diff"
-        )
+        result = attempt.result
 
-        diff_file.write_text(
-            diff,
-            encoding="utf-8",
-        )
-
-        print(
-            f"BUILD PATCH: revision round {revision_round} - py_compile...",
-            flush=True,
-        )
-
-        compile_passed, compile_output = compile_candidate(
-            candidate_file
-        )
-
-        if not compile_passed:
+        if result.semantic_decision == "COMPILE_FAILED":
             if revision_round >= MAX_REVISIONS:
-                result = BuildPatchResult(
-                    patch_id=patch_id,
-                    goal=clean_goal,
-                    workspace_name=canonical_workspace_name,
-                    target_file=target_file,
-                    original_sha256=original_sha,
-                    candidate_sha256=candidate_sha,
-                    candidate_file=str(
-                        candidate_file
-                    ),
-                    diff_file=str(
-                        diff_file
-                    ),
-                    compile_passed=False,
-                    semantic_decision="COMPILE_FAILED",
-                    semantic_review=compile_output,
-                    revision_round=revision_round,
-                    status="REVISION_LIMIT_REACHED",
-                    format_version=format_version,
-                    superseded_patch_ids=list(
-                        lineage
-                    ),
-                    supersedes_patch_id=previous_patch_id,
-                )
-
-                _write_queue_record(
-                    result
-                )
-
                 return result
-
-            result = BuildPatchResult(
-                patch_id=patch_id,
-                goal=clean_goal,
-                workspace_name=canonical_workspace_name,
-                target_file=target_file,
-                original_sha256=original_sha,
-                candidate_sha256=candidate_sha,
-                candidate_file=str(
-                    candidate_file
-                ),
-                diff_file=str(
-                    diff_file
-                ),
-                compile_passed=False,
-                semantic_decision="COMPILE_FAILED",
-                semantic_review=compile_output,
-                revision_round=revision_round,
-                status="DRAFT",
-                format_version=format_version,
-                superseded_patch_ids=list(
-                    lineage
-                ),
-                supersedes_patch_id=previous_patch_id,
-            )
-
-            _write_queue_record(
-                result
-            )
 
             print(
                 "BUILD PATCH: py_compile failed; "
@@ -475,11 +535,11 @@ def run_build_patch(
             revised = revise_candidate(
                 goal=clean_goal,
                 target_file=target_file,
-                current_content=candidate_text,
-                diff=diff,
+                current_content=attempt.candidate_text,
+                diff=attempt.diff,
                 semantic_review=(
                     "PY_COMPILE FAILURE:\n"
-                    + compile_output
+                    + result.semantic_review
                     + "\n\n"
                     "Correct only the compile/syntax problem while "
                     "preserving the requested change. Do not alter the "
@@ -493,86 +553,20 @@ def run_build_patch(
             )
 
             lineage.append(
-                patch_id
+                result.patch_id
             )
 
-            previous_patch_id = patch_id
+            previous_patch_id = result.patch_id
 
             continue
 
-        print(
-            f"BUILD PATCH: revision round {revision_round} "
-            "- semantic review...",
-            flush=True,
-        )
-
-        review = review_full_file_candidate(
-            goal=clean_goal,
-            target_file=target_file,
-            diff=diff,
-        )
-
-        decision = semantic_decision(
-            review
-        )
-
-        print(
-            f"BUILD PATCH: semantic decision = {decision}",
-            flush=True,
-        )
-
-        if decision == "APPROVE_FOR_HUMAN_REVIEW":
-            status = "READY_FOR_HUMAN_REVIEW"
-
-        elif decision == "REJECT":
-            status = "REJECTED"
-
-        elif decision == "REVISE":
-            status = (
-                "REVISION_LIMIT_REACHED"
-                if revision_round >= MAX_REVISIONS
-                else "DRAFT"
-            )
-
-        else:
-            status = "DRAFT"
-
-        result = BuildPatchResult(
-            patch_id=patch_id,
-            goal=clean_goal,
-            workspace_name=canonical_workspace_name,
-            target_file=target_file,
-            original_sha256=original_sha,
-            candidate_sha256=candidate_sha,
-            candidate_file=str(
-                candidate_file
-            ),
-            diff_file=str(
-                diff_file
-            ),
-            compile_passed=True,
-            semantic_decision=decision,
-            semantic_review=review,
-            revision_round=revision_round,
-            status=status,
-            format_version=format_version,
-            superseded_patch_ids=list(
-                lineage
-            ),
-            supersedes_patch_id=previous_patch_id,
-        )
-
-        _write_queue_record(
-            result
-        )
-
-        if decision in {
+        if result.semantic_decision in {
             "APPROVE_FOR_HUMAN_REVIEW",
             "REJECT",
         }:
             return result
 
-        if decision != "REVISE":
+        if result.semantic_decision != "REVISE":
             return result
 
         if revision_round >= MAX_REVISIONS:
@@ -586,9 +580,9 @@ def run_build_patch(
         revised = revise_candidate(
             goal=clean_goal,
             target_file=target_file,
-            current_content=candidate_text,
-            diff=diff,
-            semantic_review=review,
+            current_content=attempt.candidate_text,
+            diff=attempt.diff,
+            semantic_review=result.semantic_review,
         )
 
         new_content = _parse_revised_content(
@@ -597,10 +591,10 @@ def run_build_patch(
         )
 
         lineage.append(
-            patch_id
+            result.patch_id
         )
 
-        previous_patch_id = patch_id
+        previous_patch_id = result.patch_id
 
     raise RuntimeError(
         "Autonomous revision loop exited unexpectedly."
