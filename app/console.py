@@ -1446,7 +1446,27 @@ if console_section == "Patch review":
         actionable_records = [
             item
             for item in records
-            if item[1].get("status") in actionable_statuses
+            if (
+                item[1].get("status") in actionable_statuses
+                or (
+                    item[1].get("status") == "APPLIED"
+                    and isinstance(
+                        item[1].get("post_apply"),
+                        dict,
+                    )
+                    and item[1]["post_apply"].get(
+                        "validated"
+                    )
+                    is True
+                    and str(
+                        item[1]["post_apply"].get(
+                            "next_action"
+                        )
+                        or ""
+                    ).strip().upper()
+                    == "CONTINUE_SAFELY"
+                )
+            )
         ]
 
         history_records = [
@@ -1667,16 +1687,77 @@ if console_section == "Patch review":
                         )
 
                     if result.returncode == 0:
-                        st.success(
-                            "Patch applied successfully."
+                        canonical_applied = next(
+                            (
+                                data
+                                for _, data in load_patch_records()
+                                if data.get(
+                                    "patch_id"
+                                )
+                                == patch_id
+                            ),
+                            None,
                         )
 
-                        st.code(
-                            result.stdout.strip(),
-                            language="text",
-                        )
+                        if canonical_applied is None:
+                            st.error(
+                                "Patch apply reported success, but the "
+                                "canonical patch record could not be reloaded. "
+                                "Success confirmation was withheld."
+                            )
 
-                        st.rerun()
+                        elif canonical_applied.get(
+                            "status"
+                        ) != "APPLIED":
+                            st.error(
+                                "Patch apply reported success, but canonical "
+                                "status is not APPLIED. Success confirmation "
+                                "was withheld."
+                            )
+
+                        else:
+                            applied_sha256 = (
+                                canonical_applied.get(
+                                    "applied_sha256"
+                                )
+                            )
+
+                            if not applied_sha256:
+                                canonical_post_apply = (
+                                    canonical_applied.get(
+                                        "post_apply"
+                                    )
+                                )
+
+                                if isinstance(
+                                    canonical_post_apply,
+                                    dict,
+                                ):
+                                    applied_sha256 = (
+                                        canonical_post_apply.get(
+                                            "applied_sha256"
+                                        )
+                                    )
+
+                            st.session_state[
+                                "patch-apply-success"
+                            ] = {
+                                "patch_id": patch_id,
+                                "target_file": canonical_applied.get(
+                                    "target_file",
+                                    "<unknown>",
+                                ),
+                                "status": canonical_applied.get(
+                                    "status"
+                                ),
+                                "applied_sha256": applied_sha256,
+                            }
+
+                            st.session_state[
+                                "patch-review-category"
+                            ] = "Actionable patches"
+
+                            st.rerun()
                     else:
                         st.error(
                             "Patch apply failed."
@@ -1697,9 +1778,55 @@ if console_section == "Patch review":
                 )
 
             elif status == "APPLIED":
-                st.success(
-                    "Patch already applied."
+                apply_success = st.session_state.get(
+                    "patch-apply-success"
                 )
+
+                if (
+                    isinstance(
+                        apply_success,
+                        dict,
+                    )
+                    and apply_success.get(
+                        "patch_id"
+                    )
+                    == patch_id
+                ):
+                    st.success(
+                        "Apply successful"
+                    )
+
+                    st.write(
+                        f"**Patch ID:** {patch_id}"
+                    )
+                    st.write(
+                        "**Target file:** "
+                        f"{apply_success.get('target_file', '<unknown>')}"
+                    )
+                    st.write(
+                        "**Canonical status:** "
+                        f"{apply_success.get('status', '<unknown>')}"
+                    )
+
+                    applied_sha256 = apply_success.get(
+                        "applied_sha256"
+                    )
+
+                    if applied_sha256:
+                        st.write(
+                            "**Applied SHA256:** "
+                            f"{applied_sha256}"
+                        )
+
+                    st.session_state.pop(
+                        "patch-apply-success",
+                        None,
+                    )
+
+                else:
+                    st.success(
+                        "Patch already applied."
+                    )
 
                 post_apply = selected_data.get(
                     "post_apply"
