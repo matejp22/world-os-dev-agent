@@ -9,7 +9,10 @@ from pathlib import Path
 
 import streamlit as st
 
-from app.build_patch_orchestrator import run_build_patch
+from app.build_patch_orchestrator import (
+    run_build_patch,
+    run_manual_revision,
+)
 from app.continue_status_parser import (
     parse_continue_milestone_output,
 )
@@ -1530,10 +1533,68 @@ if console_section == "Patch review":
                     )
                 )
 
+            patch_filter = st.text_input(
+                "Filter patches",
+                key="patch-review-filter",
+                placeholder=(
+                    "Filter by Patch ID, target file, or status..."
+                ),
+            )
+
+            clean_patch_filter = patch_filter.strip().casefold()
+
+            if clean_patch_filter:
+                filtered_options = [
+                    item
+                    for item in record_options
+                    if clean_patch_filter in item[0].casefold()
+                ]
+
+                if filtered_options:
+                    record_options = filtered_options
+                else:
+                    st.warning(
+                        "No patches match the current filter. "
+                        "Showing all patches."
+                    )
+
             record_labels = [
                 label
                 for label, _ in record_options
             ]
+
+            current_selected_label = st.session_state.get(
+                "patch-review-selected-record"
+            )
+
+            if (
+                current_selected_label is not None
+                and current_selected_label not in record_labels
+            ):
+                st.session_state.pop(
+                    "patch-review-selected-record",
+                    None,
+                )
+
+            pending_patch_id = st.session_state.pop(
+                "patch-review-next-patch-id",
+                None,
+            )
+
+            if pending_patch_id:
+                pending_label = next(
+                    (
+                        label
+                        for label, option_patch_id in record_options
+                        if option_patch_id == pending_patch_id
+                    ),
+                    None,
+                )
+
+                if pending_label is not None:
+                    st.session_state[
+                        "patch-review-selected-record"
+                    ] = pending_label
 
             selected_label = st.selectbox(
                 "Select a patch",
@@ -1569,6 +1630,21 @@ if console_section == "Patch review":
                 "format_version",
                 "<unknown>",
             )
+
+            revision_success = st.session_state.pop(
+                "patch-revision-success",
+                None,
+            )
+
+            if revision_success:
+                st.success(
+                    "Revision candidate created successfully. "
+                    f"New Patch ID: "
+                    f"{revision_success['new_patch_id']} | "
+                    f"Status: {revision_success['status']} | "
+                    f"Semantic: "
+                    f"{revision_success['semantic_decision']}"
+                )
 
             st.markdown(
                 f"### Selected patch: {patch_id}"
@@ -1613,13 +1689,28 @@ if console_section == "Patch review":
                     )
 
             if status == "READY_FOR_HUMAN_REVIEW":
-                approve_col, reject_col = st.columns(2)
+                revision_instruction = st.text_area(
+                    "Revision instruction",
+                    key=f"revision-instruction-{patch_id}",
+                    placeholder=(
+                        "Describe only the bounded correction required "
+                        "for this candidate."
+                    ),
+                )
+
+                approve_col, revise_col, reject_col = st.columns(3)
 
                 with approve_col:
                     approve_clicked = st.button(
                         "Approve",
                         key=f"approve-{patch_id}",
                         type="primary",
+                    )
+
+                with revise_col:
+                    revise_clicked = st.button(
+                        "Revise patch",
+                        key=f"revise-{patch_id}",
                     )
 
                 with reject_col:
@@ -1643,6 +1734,42 @@ if console_section == "Patch review":
                             "Patch approved through canonical Quality Gate. "
                             "Source code was NOT modified."
                         )
+
+                        st.rerun()
+
+                if revise_clicked:
+                    try:
+                        with st.spinner(
+                            "Building fresh revised candidate..."
+                        ):
+                            revision_result = run_manual_revision(
+                                patch_id=patch_id,
+                                revision_instruction=revision_instruction,
+                            )
+                    except RuntimeError as exc:
+                        st.error(
+                            f"Revision blocked: {exc}"
+                        )
+                    else:
+                        st.session_state[
+                            "patch-revision-success"
+                        ] = {
+                            "source_patch_id": patch_id,
+                            "new_patch_id": revision_result.patch_id,
+                            "status": revision_result.status,
+                            "semantic_decision": (
+                                revision_result.semantic_decision
+                            ),
+                            "target_file": revision_result.target_file,
+                        }
+
+                        if revision_result.status in {
+                            "READY_FOR_HUMAN_REVIEW",
+                            "APPROVED",
+                        }:
+                            st.session_state[
+                                "patch-review-next-patch-id"
+                            ] = revision_result.patch_id
 
                         st.rerun()
 
