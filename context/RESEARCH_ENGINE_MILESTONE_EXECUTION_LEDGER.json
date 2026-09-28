@@ -1,0 +1,98 @@
+{
+  "milestone_id": "milestone-source-understanding-hardening",
+  "milestone_title": "Source Understanding Hardening Production-Ready",
+  "steps": [
+    {
+      "note": "Readable visible HTML text extraction is present; policy and provenance behavior remain preserved.",
+      "patch_ids": [
+        "a49b976f-450d-4706-8bae-49a69692677b"
+      ],
+      "status": "COMPLETED",
+      "step_id": "S1-visible-html-text-extraction",
+      "target_files": [
+        "app/research/providers/http_source_content.py"
+      ],
+      "title": "Visible HTML text extraction"
+    },
+    {
+      "note": "Block boundaries and normalized readable whitespace are present in the current implementation.",
+      "patch_ids": [],
+      "status": "COMPLETED",
+      "step_id": "S2-block-structure-whitespace",
+      "target_files": [
+        "app/research/providers/http_source_content.py"
+      ],
+      "title": "Block structure and readable whitespace preservation"
+    },
+    {
+      "note": "Focused coverage and applied implementation exclude non-visible document, template, SVG, media, metadata, dialog and menu content.",
+      "patch_ids": [
+        "c24c95c4-73c7-4c61-8af1-026b0ebdfabb",
+        "55a00821-8aca-4b03-96b9-d2e5cfa8a0cb"
+      ],
+      "status": "COMPLETED",
+      "step_id": "S3-non-visible-element-filtering",
+      "target_files": [
+        "app/test_http_source_content_provider.py",
+        "app/research/providers/http_source_content.py"
+      ],
+      "title": "Non-visible HTML element filtering"
+    },
+    {
+      "note": "Hidden, aria-hidden, display:none and visibility:hidden content is excluded from readable extraction.",
+      "patch_ids": [],
+      "status": "COMPLETED",
+      "step_id": "S4-hidden-content-filtering",
+      "target_files": [
+        "app/research/providers/http_source_content.py"
+      ],
+      "title": "Hidden attribute and inline style filtering"
+    },
+    {
+      "note": "Ignored state is tracked with a stack so nested hidden and ignored structures do not leak content.",
+      "patch_ids": [
+        "7500b110-df1f-4852-8409-dd8975c7fe34"
+      ],
+      "status": "COMPLETED",
+      "step_id": "S5-nested-ignored-content-tracking",
+      "target_files": [
+        "app/research/providers/http_source_content.py"
+      ],
+      "title": "Correct nested ignored-content tracking"
+    },
+    {
+      "note": "Content-Type normalization is case-insensitive and recognized HTML media types are handled explicitly.",
+      "patch_ids": [],
+      "status": "COMPLETED",
+      "step_id": "S6-html-content-type-normalization",
+      "target_files": [
+        "app/research/providers/http_source_content.py"
+      ],
+      "title": "HTML Content-Type normalization and variants"
+    },
+    {
+      "note": "PDF content is rejected for dedicated extraction and unsafe/empty HTML parsing fails closed.",
+      "patch_ids": [],
+      "status": "COMPLETED",
+      "step_id": "S7-fail-closed-document-boundaries",
+      "target_files": [
+        "app/research/providers/http_source_content.py"
+      ],
+      "title": "PDF routing boundary and parser fail-closed behavior"
+    },
+    {
+      "note": "Production-readiness closure verified. Focused and full regression tests passed, source lifecycle was verified against the applied SHA256, and the canonical roadmap milestone transitioned to COMPLETED / PASSED.",
+      "patch_ids": [
+        "c3e24330-5ccb-4651-9cd0-881563a9f038"
+      ],
+      "status": "COMPLETED",
+      "step_id": "S8-production-readiness-closure",
+      "target_files": [
+        "app/research/providers/http_source_content.py",
+        "app/test_http_source_content_provider.py"
+      ],
+      "title": "Milestone production-readiness closure verification"
+    }
+  ],
+  "workspace_name": "world-os-research-engine"
+}

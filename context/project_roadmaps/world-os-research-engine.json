@@ -250,14 +250,14 @@
       "title": "Source Understanding Hardening Production-Ready",
       "kind": "MILESTONE",
       "parent_id": "group-source-understanding-hardening",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "weight": 8.0,
       "dependencies": [
         "milestone-http-source-content-parsing-hardening"
       ],
-      "verification_status": "PENDING",
-      "patch_id": null,
-      "completed_at": null
+      "verification_status": "PASSED",
+      "patch_id": "c3e24330-5ccb-4651-9cd0-881563a9f038",
+      "completed_at": "2026-09-28T17:18:59.230672Z"
     },
     {
       "node_id": "group-complete-port-core-v2",
