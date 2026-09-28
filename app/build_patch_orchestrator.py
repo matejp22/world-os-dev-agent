@@ -2,7 +2,7 @@
 
 import json
 import subprocess
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -46,6 +46,8 @@ class BuildPatchResult:
     revision_round: int
     status: str
     format_version: str
+    superseded_patch_ids: list[str] = field(default_factory=list)
+    supersedes_patch_id: str | None = None
 
 
 def semantic_decision(review: str) -> str:
@@ -171,6 +173,71 @@ def compile_candidate(
     )
 
 
+def _write_queue_record(
+    result: BuildPatchResult,
+) -> Path:
+    QUEUE_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    queue_file = (
+        QUEUE_DIR
+        / f"{result.patch_id}.json"
+    )
+
+    if queue_file.exists():
+        raise RuntimeError(
+            "Refusing to overwrite historical patch record: "
+            + result.patch_id
+        )
+
+    payload = asdict(
+        result
+    )
+
+    payload["created_at"] = (
+        datetime.now(
+            timezone.utc
+        ).isoformat()
+    )
+
+    queue_file.write_text(
+        json.dumps(
+            payload,
+            indent=2,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    return queue_file
+
+
+def _parse_revised_content(
+    revised: str,
+    target_file: str,
+) -> str:
+    revised_target = extract_section(
+        revised,
+        "TARGET_FILE:",
+        "RATIONALE:",
+    ).replace(
+        "\\",
+        "/",
+    )
+
+    if revised_target != target_file:
+        raise RuntimeError(
+            "Revision attempted to change target file."
+        )
+
+    return extract_section(
+        revised,
+        "NEW_FILE_CONTENT:",
+    )
+
+
 def run_build_patch(
     goal: str,
     workspace_name: str = "world-os-dev-agent",
@@ -188,16 +255,20 @@ def run_build_patch(
 
     canonical_workspace_name = workspace.name
 
-    print("BUILD PATCH: generating candidate...", flush=True)
+    print(
+        "BUILD PATCH: generating candidate...",
+        flush=True,
+    )
 
     raw_candidate = generate_candidate(
         clean_goal,
         canonical_workspace_name,
     )
 
-    print("BUILD PATCH: candidate generated.", flush=True)
-
-    print("BUILD PATCH: parsing candidate...", flush=True)
+    print(
+        "BUILD PATCH: candidate generated.",
+        flush=True,
+    )
 
     target_file, new_content = parse_candidate(
         raw_candidate
@@ -236,10 +307,6 @@ def run_build_patch(
         else "NEW_FILE_V2"
     )
 
-    patch_id = str(
-        uuid4()
-    )
-
     TEMP_DIR.mkdir(
         parents=True,
         exist_ok=True,
@@ -250,19 +317,17 @@ def run_build_patch(
         exist_ok=True,
     )
 
-    final_review = ""
-    final_decision = "UNKNOWN"
-    final_original_sha: str | None = None
-    final_candidate_sha = ""
-    final_candidate_file: Path | None = None
-    final_diff_file: Path | None = None
-    final_compile_passed = False
-    final_revision_round = 0
+    previous_patch_id: str | None = None
+    lineage: list[str] = []
 
     for revision_round in range(
         0,
         MAX_REVISIONS + 1,
     ):
+        patch_id = str(
+            uuid4()
+        )
+
         if target_exists:
             (
                 original_bytes,
@@ -287,7 +352,6 @@ def run_build_patch(
 
         else:
             original_bytes = b""
-
             original_sha = None
 
             candidate_bytes = normalize_new_candidate(
@@ -342,28 +406,76 @@ def run_build_patch(
 
         if not compile_passed:
             if revision_round >= MAX_REVISIONS:
-                raise RuntimeError(
-                    "Candidate py_compile failed:\n"
-                    + compile_output
+                result = BuildPatchResult(
+                    patch_id=patch_id,
+                    goal=clean_goal,
+                    workspace_name=canonical_workspace_name,
+                    target_file=target_file,
+                    original_sha256=original_sha,
+                    candidate_sha256=candidate_sha,
+                    candidate_file=str(
+                        candidate_file
+                    ),
+                    diff_file=str(
+                        diff_file
+                    ),
+                    compile_passed=False,
+                    semantic_decision="COMPILE_FAILED",
+                    semantic_review=compile_output,
+                    revision_round=revision_round,
+                    status="REVISION_LIMIT_REACHED",
+                    format_version=format_version,
+                    superseded_patch_ids=list(
+                        lineage
+                    ),
+                    supersedes_patch_id=previous_patch_id,
                 )
 
-            current_content = (
-                target_path.read_text(
-                    encoding="utf-8-sig",
+                _write_queue_record(
+                    result
                 )
-                if target_exists
-                else ""
+
+                return result
+
+            result = BuildPatchResult(
+                patch_id=patch_id,
+                goal=clean_goal,
+                workspace_name=canonical_workspace_name,
+                target_file=target_file,
+                original_sha256=original_sha,
+                candidate_sha256=candidate_sha,
+                candidate_file=str(
+                    candidate_file
+                ),
+                diff_file=str(
+                    diff_file
+                ),
+                compile_passed=False,
+                semantic_decision="COMPILE_FAILED",
+                semantic_review=compile_output,
+                revision_round=revision_round,
+                status="DRAFT",
+                format_version=format_version,
+                superseded_patch_ids=list(
+                    lineage
+                ),
+                supersedes_patch_id=previous_patch_id,
+            )
+
+            _write_queue_record(
+                result
             )
 
             print(
-                "BUILD PATCH: py_compile failed; requesting compile repair...",
+                "BUILD PATCH: py_compile failed; "
+                "requesting compile repair...",
                 flush=True,
             )
 
             revised = revise_candidate(
                 goal=clean_goal,
                 target_file=target_file,
-                current_content=current_content,
+                current_content=candidate_text,
                 diff=diff,
                 semantic_review=(
                     "PY_COMPILE FAILURE:\n"
@@ -375,29 +487,22 @@ def run_build_patch(
                 ),
             )
 
-            revised_target = extract_section(
+            new_content = _parse_revised_content(
                 revised,
-                "TARGET_FILE:",
-                "RATIONALE:",
-            ).replace(
-                "\\",
-                "/",
+                target_file,
             )
 
-            if revised_target != target_file:
-                raise RuntimeError(
-                    "Revision attempted to change target file."
-                )
-
-            new_content = extract_section(
-                revised,
-                "NEW_FILE_CONTENT:",
+            lineage.append(
+                patch_id
             )
+
+            previous_patch_id = patch_id
 
             continue
 
         print(
-            f"BUILD PATCH: revision round {revision_round} - semantic review...",
+            f"BUILD PATCH: revision round {revision_round} "
+            "- semantic review...",
             flush=True,
         )
 
@@ -416,34 +521,62 @@ def run_build_patch(
             flush=True,
         )
 
-        final_review = review
-        final_decision = decision
-        final_original_sha = original_sha
-        final_candidate_sha = candidate_sha
-        final_candidate_file = candidate_file
-        final_diff_file = diff_file
-        final_compile_passed = compile_passed
-        final_revision_round = revision_round
-
         if decision == "APPROVE_FOR_HUMAN_REVIEW":
-            break
+            status = "READY_FOR_HUMAN_REVIEW"
 
-        if decision == "REJECT":
-            break
+        elif decision == "REJECT":
+            status = "REJECTED"
+
+        elif decision == "REVISE":
+            status = (
+                "REVISION_LIMIT_REACHED"
+                if revision_round >= MAX_REVISIONS
+                else "DRAFT"
+            )
+
+        else:
+            status = "DRAFT"
+
+        result = BuildPatchResult(
+            patch_id=patch_id,
+            goal=clean_goal,
+            workspace_name=canonical_workspace_name,
+            target_file=target_file,
+            original_sha256=original_sha,
+            candidate_sha256=candidate_sha,
+            candidate_file=str(
+                candidate_file
+            ),
+            diff_file=str(
+                diff_file
+            ),
+            compile_passed=True,
+            semantic_decision=decision,
+            semantic_review=review,
+            revision_round=revision_round,
+            status=status,
+            format_version=format_version,
+            superseded_patch_ids=list(
+                lineage
+            ),
+            supersedes_patch_id=previous_patch_id,
+        )
+
+        _write_queue_record(
+            result
+        )
+
+        if decision in {
+            "APPROVE_FOR_HUMAN_REVIEW",
+            "REJECT",
+        }:
+            return result
 
         if decision != "REVISE":
-            break
+            return result
 
         if revision_round >= MAX_REVISIONS:
-            break
-
-        current_content = (
-            target_path.read_text(
-                encoding="utf-8-sig",
-            )
-            if target_exists
-            else ""
-        )
+            return result
 
         print(
             f"BUILD PATCH: requesting revision {revision_round + 1}...",
@@ -453,100 +586,25 @@ def run_build_patch(
         revised = revise_candidate(
             goal=clean_goal,
             target_file=target_file,
-            current_content=current_content,
+            current_content=candidate_text,
             diff=diff,
             semantic_review=review,
         )
 
-        revised_target = extract_section(
+        new_content = _parse_revised_content(
             revised,
-            "TARGET_FILE:",
-            "RATIONALE:",
-        ).replace(
-            "\\",
-            "/",
+            target_file,
         )
 
-        if revised_target != target_file:
-            raise RuntimeError(
-                "Revision attempted to change target file."
-            )
-
-        new_content = extract_section(
-            revised,
-            "NEW_FILE_CONTENT:",
+        lineage.append(
+            patch_id
         )
 
-    if final_candidate_file is None:
-        raise RuntimeError(
-            "No candidate file was produced."
-        )
+        previous_patch_id = patch_id
 
-    if final_diff_file is None:
-        raise RuntimeError(
-            "No diff file was produced."
-        )
-
-    status = status_for_decision(
-        final_decision
+    raise RuntimeError(
+        "Autonomous revision loop exited unexpectedly."
     )
-
-    result = BuildPatchResult(
-        patch_id=patch_id,
-        goal=clean_goal,
-        workspace_name=canonical_workspace_name,
-        target_file=target_file,
-        original_sha256=final_original_sha,
-        candidate_sha256=final_candidate_sha,
-        candidate_file=str(
-            final_candidate_file
-        ),
-        diff_file=str(
-            final_diff_file
-        ),
-        compile_passed=final_compile_passed,
-        semantic_decision=final_decision,
-        semantic_review=final_review,
-        revision_round=final_revision_round,
-        status=status,
-        format_version=format_version,
-    )
-
-    queue_file = (
-        QUEUE_DIR
-        / f"{patch_id}.json"
-    )
-
-    queue_payload = asdict(
-        result
-    )
-
-    queue_payload["created_at"] = (
-        datetime.now(
-            timezone.utc
-        ).isoformat()
-    )
-
-    queue_file.write_text(
-        json.dumps(
-            queue_payload,
-            indent=2,
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
-    )
-
-    print(
-        f"BUILD PATCH: queue record created = {queue_file}",
-        flush=True,
-    )
-
-    print(
-        f"BUILD PATCH: final status = {result.status}",
-        flush=True,
-    )
-
-    return result
 
 
 if __name__ == "__main__":
