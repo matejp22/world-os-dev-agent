@@ -111,7 +111,10 @@ def evaluate_strict_milestone_completion(
         )
 
     if (
-        milestone.status != "NOT_STARTED"
+        milestone.status not in {
+            "NOT_STARTED",
+            "IN_PROGRESS",
+        }
         or milestone.verification_status != "PENDING"
         or milestone.patch_id is not None
         or milestone.completed_at is not None
@@ -120,7 +123,7 @@ def evaluate_strict_milestone_completion(
             roadmap=roadmap,
             milestone_id=milestone_id,
             patch_id=patch_id,
-            reason="Milestone is not in the eligible initial state.",
+            reason="Milestone is not in an eligible completion state.",
         )
 
     if (
