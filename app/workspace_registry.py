@@ -122,6 +122,7 @@ def resolve_workspace_python_target(
     *,
     must_exist: bool = True,
     allow_existing_test_script: bool = False,
+    allow_tests_tree: bool = False,
 ) -> Path:
     """
     Resolve a safe workspace-relative Python source target.
@@ -251,7 +252,13 @@ def resolve_workspace_python_target(
 
         return target
 
-    if not normalized.casefold().startswith("app/"):
+    tests_tree_target = (
+        allow_tests_tree
+        and lowered_parts[0] == "tests"
+        and filename.endswith(".py")
+    )
+
+    if not tests_tree_target and not normalized.casefold().startswith("app/"):
         raise RuntimeError(
             "Target must be inside app/."
         )
@@ -262,15 +269,26 @@ def resolve_workspace_python_target(
         )
 
     workspace_root = workspace.path.resolve()
-    app_root = (workspace_root / "app").resolve()
     target = (workspace_root / Path(*parts)).resolve()
 
+    if tests_tree_target:
+        permitted_root = (workspace_root / "tests").resolve()
+        containment_error = (
+            "Tests-tree target escapes the registered workspace "
+            "tests directory."
+        )
+    else:
+        permitted_root = (workspace_root / "app").resolve()
+        containment_error = (
+            "Target escapes the registered workspace app directory."
+        )
+
     try:
-        app_root.relative_to(workspace_root)
-        target.relative_to(app_root)
+        permitted_root.relative_to(workspace_root)
+        target.relative_to(permitted_root)
     except ValueError as exc:
         raise RuntimeError(
-            "Target escapes the registered workspace app directory."
+            containment_error
         ) from exc
 
     if must_exist:
