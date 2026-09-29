@@ -380,25 +380,25 @@ def _build_companion_test_patch(
             "source quality selection should have discovered it."
         )
 
-    attempt = _build_candidate_attempt(
-        clean_goal=(
-            "Create focused companion regression test for "
-            + source_target_file
-            + ". Original goal: "
-            + goal
-        ),
+    companion_goal = (
+        "Create focused companion regression test for "
+        + source_target_file
+        + ". Original goal: "
+        + goal
+    )
+
+    return _run_autonomous_candidate_revision_loop(
+        clean_goal=companion_goal,
         canonical_workspace_name=workspace_name,
         target_file=target_file,
         target_path=target_path,
         target_exists=False,
         format_version="NEW_FILE_V2",
-        new_content=new_content,
-        revision_round=0,
-        lineage=[source_patch_id],
-        previous_patch_id=source_patch_id,
+        initial_content=new_content,
+        initial_lineage=[source_patch_id],
+        initial_previous_patch_id=source_patch_id,
+        allow_companion_generation=False,
     )
-
-    return attempt.result
 
 
 def _parse_revised_content(
@@ -521,11 +521,7 @@ def _build_candidate_attempt(
     if not compile_passed:
         semantic_review = compile_output
         decision = "COMPILE_FAILED"
-        status = (
-            "REVISION_LIMIT_REACHED"
-            if revision_round >= MAX_REVISIONS
-            else "DRAFT"
-        )
+        status = "DRAFT"
 
     else:
         print(
@@ -582,11 +578,7 @@ def _build_candidate_attempt(
                 status = "READY_FOR_HUMAN_REVIEW"
             else:
                 decision = "REVISE"
-                status = (
-                    "REVISION_LIMIT_REACHED"
-                    if revision_round >= MAX_REVISIONS
-                    else "DRAFT"
-                )
+                status = "DRAFT"
                 semantic_review = (
                     "REVISE\n\n"
                     "AUTONOMOUS QUALITY PREFLIGHT DID NOT PASS.\n"
@@ -609,11 +601,7 @@ def _build_candidate_attempt(
             status = "REJECTED"
 
         elif decision == "REVISE":
-            status = (
-                "REVISION_LIMIT_REACHED"
-                if revision_round >= MAX_REVISIONS
-                else "DRAFT"
-            )
+            status = "DRAFT"
 
         else:
             status = "DRAFT"
@@ -652,6 +640,135 @@ def _build_candidate_attempt(
         candidate_text=candidate_text,
         diff=diff,
     )
+
+
+
+def _run_autonomous_candidate_revision_loop(
+    *,
+    clean_goal: str,
+    canonical_workspace_name: str,
+    target_file: str,
+    target_path: Path,
+    target_exists: bool,
+    format_version: str,
+    initial_content: str,
+    initial_lineage: list[str] | None = None,
+    initial_previous_patch_id: str | None = None,
+    allow_companion_generation: bool = False,
+    source_goal: str | None = None,
+) -> BuildPatchResult:
+    """Keep repairing one bounded candidate until green or a hard blocker.
+
+    There is deliberately no arbitrary autonomous revision limit.
+
+    A hard blocker is raised only when the repair model demonstrably
+    stagnates by producing the same candidate with the same failure
+    feedback three consecutive times, or when an underlying safety /
+    workspace / API invariant raises an exception.
+    """
+
+    revision_round = 0
+    new_content = initial_content
+    lineage = list(initial_lineage or [])
+    previous_patch_id = initial_previous_patch_id
+
+    last_failure_signature: tuple[str, str, str] | None = None
+    repeated_failure_count = 0
+
+    while True:
+        attempt = _build_candidate_attempt(
+            clean_goal=clean_goal,
+            canonical_workspace_name=canonical_workspace_name,
+            target_file=target_file,
+            target_path=target_path,
+            target_exists=target_exists,
+            format_version=format_version,
+            new_content=new_content,
+            revision_round=revision_round,
+            lineage=lineage,
+            previous_patch_id=previous_patch_id,
+        )
+
+        result = attempt.result
+
+        if result.status == "READY_FOR_HUMAN_REVIEW":
+            return result
+
+        if (
+            allow_companion_generation
+            and result.semantic_decision == "REVISE"
+            and "no focused tests selected"
+            in result.semantic_review.casefold()
+        ):
+            print(
+                "BUILD PATCH: no focused tests selected; "
+                "generating autonomous companion test...",
+                flush=True,
+            )
+
+            return _build_companion_test_patch(
+                goal=source_goal or clean_goal,
+                workspace_name=canonical_workspace_name,
+                source_target_file=target_file,
+                source_candidate_content=attempt.candidate_text,
+                source_patch_id=result.patch_id,
+            )
+
+        failure_signature = (
+            result.candidate_sha256,
+            result.semantic_decision,
+            result.semantic_review.strip(),
+        )
+
+        if failure_signature == last_failure_signature:
+            repeated_failure_count += 1
+        else:
+            repeated_failure_count = 1
+            last_failure_signature = failure_signature
+
+        if repeated_failure_count >= 3:
+            raise RuntimeError(
+                "AUTONOMOUS_HARD_BLOCKER: candidate repair stagnated "
+                "with the same candidate and identical validation "
+                "feedback three consecutive times."
+            )
+
+        if result.semantic_decision == "COMPILE_FAILED":
+            revision_feedback = (
+                "PY_COMPILE FAILURE:\n"
+                + result.semantic_review
+                + "\n\nRepair the compile/syntax problem while preserving "
+                "the requested behavior. Keep exactly the same target file."
+            )
+            print(
+                "BUILD PATCH: py_compile failed; "
+                f"requesting autonomous repair {revision_round + 1}...",
+                flush=True,
+            )
+        else:
+            revision_feedback = result.semantic_review
+            print(
+                "BUILD PATCH: candidate not green; "
+                f"requesting autonomous revision {revision_round + 1}...",
+                flush=True,
+            )
+
+        revised = revise_candidate(
+            goal=clean_goal,
+            target_file=target_file,
+            current_content=attempt.candidate_text,
+            diff=attempt.diff,
+            semantic_review=revision_feedback,
+        )
+
+        new_content = _parse_revised_content(
+            revised,
+            target_file,
+        )
+
+        lineage.append(result.patch_id)
+        previous_patch_id = result.patch_id
+        revision_round += 1
 
 
 def run_build_patch(
@@ -743,120 +860,16 @@ def run_build_patch(
     previous_patch_id: str | None = None
     lineage: list[str] = []
 
-    for revision_round in range(
-        0,
-        MAX_REVISIONS + 1,
-    ):
-        attempt = _build_candidate_attempt(
-            clean_goal=clean_goal,
-            canonical_workspace_name=canonical_workspace_name,
-            target_file=target_file,
-            target_path=target_path,
-            target_exists=target_exists,
-            format_version=format_version,
-            new_content=new_content,
-            revision_round=revision_round,
-            lineage=lineage,
-            previous_patch_id=previous_patch_id,
-        )
-
-        result = attempt.result
-
-        if result.semantic_decision == "COMPILE_FAILED":
-            if revision_round >= MAX_REVISIONS:
-                return result
-
-            print(
-                "BUILD PATCH: py_compile failed; "
-                "requesting compile repair...",
-                flush=True,
-            )
-
-            revised = revise_candidate(
-                goal=clean_goal,
-                target_file=target_file,
-                current_content=attempt.candidate_text,
-                diff=attempt.diff,
-                semantic_review=(
-                    "PY_COMPILE FAILURE:\n"
-                    + result.semantic_review
-                    + "\n\n"
-                    "Correct only the compile/syntax problem while "
-                    "preserving the requested change. Do not alter the "
-                    "target file."
-                ),
-            )
-
-            new_content = _parse_revised_content(
-                revised,
-                target_file,
-            )
-
-            lineage.append(
-                result.patch_id
-            )
-
-            previous_patch_id = result.patch_id
-
-            continue
-
-        if result.semantic_decision in {
-            "APPROVE_FOR_HUMAN_REVIEW",
-            "REJECT",
-        }:
-            return result
-
-        if (
-            result.semantic_decision == "REVISE"
-            and "no focused tests selected"
-            in result.semantic_review.casefold()
-        ):
-            print(
-                "BUILD PATCH: no focused tests selected; "
-                "generating autonomous companion test...",
-                flush=True,
-            )
-
-            return _build_companion_test_patch(
-                goal=clean_goal,
-                workspace_name=canonical_workspace_name,
-                source_target_file=target_file,
-                source_candidate_content=attempt.candidate_text,
-                source_patch_id=result.patch_id,
-            )
-
-        if result.semantic_decision != "REVISE":
-            return result
-
-        if revision_round >= MAX_REVISIONS:
-            return result
-
-        print(
-            f"BUILD PATCH: requesting revision {revision_round + 1}...",
-            flush=True,
-        )
-
-        revised = revise_candidate(
-            goal=clean_goal,
-            target_file=target_file,
-            current_content=attempt.candidate_text,
-            diff=attempt.diff,
-            semantic_review=result.semantic_review,
-        )
-
-        new_content = _parse_revised_content(
-            revised,
-            target_file,
-        )
-
-        lineage.append(
-            result.patch_id
-        )
-
-        previous_patch_id = result.patch_id
-
-    raise RuntimeError(
-        "Autonomous revision loop exited unexpectedly."
+    return _run_autonomous_candidate_revision_loop(
+        clean_goal=clean_goal,
+        canonical_workspace_name=canonical_workspace_name,
+        target_file=target_file,
+        target_path=target_path,
+        target_exists=target_exists,
+        format_version=format_version,
+        initial_content=new_content,
+        allow_companion_generation=True,
+        source_goal=clean_goal,
     )
 
 

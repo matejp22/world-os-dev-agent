@@ -20,13 +20,15 @@ You receive:
 - deterministic review diff
 - semantic review feedback
 
-Your task is to produce a revised COMPLETE version of exactly one existing Python file.
+Your task is to produce a revised COMPLETE version of exactly one Python file candidate. The target may represent either an existing file or a proposed new file.
 
 IMPORTANT RULES:
 - Address the semantic review directly.
 - Do not execute anything.
 - Do not modify files.
-- Change exactly one existing Python file.
+- Revise exactly one Python file candidate.
+- Never change the target file path supplied by the caller.
+- The candidate may be for a new file; do not require that it already exists.
 - Do not return a diff.
 - Return the COMPLETE file contents.
 - Do not use Markdown fences.

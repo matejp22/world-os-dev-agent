@@ -283,14 +283,14 @@ def test_compile_failure_repairs_without_semantic_reject(
     assert first_record["semantic_decision"] != "REJECT"
 
 
-def test_revision_limit_returns_actual_last_candidate(
+def test_autonomous_build_is_not_bounded_by_max_revisions(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
     _install_isolated_environment(
         monkeypatch,
         tmp_path,
-        ["limit-1", "limit-2"],
+        ["attempt-1", "attempt-2", "attempt-3"],
     )
 
     monkeypatch.setattr(
@@ -298,84 +298,74 @@ def test_revision_limit_returns_actual_last_candidate(
         "MAX_REVISIONS",
         1,
     )
-    monkeypatch.setattr(
-        orchestrator,
-        "generate_candidate",
-        lambda goal, workspace_name: "RAW",
-    )
-    monkeypatch.setattr(
-        orchestrator,
-        "parse_candidate",
-        lambda raw: (
-            "example.py",
-            "VALUE = 1\n",
+
+    attempts = [
+        SimpleNamespace(
+            result=SimpleNamespace(
+                patch_id="attempt-1",
+                candidate_sha256="sha-1",
+                semantic_decision="REVISE",
+                semantic_review="REVISE\nfirst repair",
+                status="DRAFT",
+            ),
+            candidate_text="VALUE = 1\n",
+            diff="diff-1",
         ),
-    )
+        SimpleNamespace(
+            result=SimpleNamespace(
+                patch_id="attempt-2",
+                candidate_sha256="sha-2",
+                semantic_decision="REVISE",
+                semantic_review="REVISE\nsecond repair",
+                status="DRAFT",
+            ),
+            candidate_text="VALUE = 2\n",
+            diff="diff-2",
+        ),
+        SimpleNamespace(
+            result=SimpleNamespace(
+                patch_id="attempt-3",
+                candidate_sha256="sha-3",
+                semantic_decision="APPROVE_FOR_HUMAN_REVIEW",
+                semantic_review="approved",
+                status="READY_FOR_HUMAN_REVIEW",
+            ),
+            candidate_text="VALUE = 3\n",
+            diff="diff-3",
+        ),
+    ]
+
     monkeypatch.setattr(
         orchestrator,
-        "compile_candidate",
-        lambda candidate_file: (
-            True,
-            "",
-        ),
+        "_build_candidate_attempt",
+        lambda **_kwargs: attempts.pop(0),
     )
-    monkeypatch.setattr(
-        orchestrator,
-        "review_full_file_candidate",
-        lambda **kwargs: (
-            "REVISE\n"
-            "REASON: revise again"
-        ),
-    )
+
     monkeypatch.setattr(
         orchestrator,
         "revise_candidate",
-        lambda **kwargs: "REVISION",
-    )
-    monkeypatch.setattr(
-        orchestrator,
-        "_parse_revised_content",
-        lambda revised, target_file: (
-            "VALUE = 2\n"
+        lambda **_kwargs: (
+            "TARGET_FILE: example.py\n\n"
+            "RATIONALE:\nrepair\n\n"
+            "NEW_FILE_CONTENT:\nVALUE = 2\n"
         ),
     )
 
-    result = orchestrator.run_build_patch(
-        "force revision limit",
-        "world-os-dev-agent",
+    monkeypatch.setattr(
+        orchestrator,
+        "_parse_revised_content",
+        lambda revised, target_file: "VALUE = 2\n",
     )
 
-    assert result.patch_id == "limit-2"
-    assert result.revision_round == 1
-    assert result.status == "REVISION_LIMIT_REACHED"
-    assert result.semantic_decision == "REVISE"
-
-    assert result.supersedes_patch_id == "limit-1"
-    assert result.superseded_patch_ids == [
-        "limit-1",
-    ]
-
-    assert (
-        Path(result.candidate_file)
-        .read_text(encoding="utf-8")
-        == "VALUE = 2\n"
+    result = orchestrator._run_autonomous_candidate_revision_loop(
+        clean_goal="continue until green",
+        canonical_workspace_name="world-os-dev-agent",
+        target_file="example.py",
+        target_path=tmp_path / "example.py",
+        target_exists=True,
+        format_version="FULL_FILE_V2",
+        initial_content="VALUE = 1\n",
     )
 
-    final_record = json.loads(
-        (
-            orchestrator.QUEUE_DIR
-            / "limit-2.json"
-        ).read_text(
-            encoding="utf-8"
-        )
-    )
-
-    assert final_record["patch_id"] == result.patch_id
-    assert final_record["candidate_sha256"] == result.candidate_sha256
-    assert final_record["candidate_file"] == result.candidate_file
-    assert final_record["diff_file"] == result.diff_file
-    assert final_record["revision_round"] == result.revision_round
-    assert final_record["status"] == result.status
-    assert final_record["superseded_patch_ids"] == [
-        "limit-1",
-    ]
+    assert result.status == "READY_FOR_HUMAN_REVIEW"
+    assert result.patch_id == "attempt-3"
