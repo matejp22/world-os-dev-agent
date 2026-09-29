@@ -17,6 +17,9 @@ from app.full_file_validator import (
     parse_candidate,
     sha256_bytes,
 )
+from app.patch_quality_evidence_runner import (
+    run_patch_quality_evidence,
+)
 from app.workspace_registry import (
     get_workspace_profile,
     resolve_workspace_python_target,
@@ -370,7 +373,60 @@ def _build_candidate_attempt(
         )
 
         if decision == "APPROVE_FOR_HUMAN_REVIEW":
-            status = "READY_FOR_HUMAN_REVIEW"
+            quality = run_patch_quality_evidence(
+                workspace_name=canonical_workspace_name,
+                target_file=target_file,
+                candidate_target_file=target_file,
+                candidate_file=candidate_file,
+                allow_missing_candidate_target=(
+                    format_version == "NEW_FILE_V2"
+                ),
+            )
+
+            quality_green = (
+                quality.execution_supported is True
+                and (
+                    quality.behavioral_source_change is False
+                    or (
+                        quality.focused_tests_executed is True
+                        and quality.focused_tests_passed is True
+                        and (
+                            not quality.regression_test_ids
+                            or (
+                                quality.regression_tests_executed is True
+                                and quality.regression_tests_passed is True
+                            )
+                        )
+                    )
+                )
+            )
+
+            if quality_green:
+                status = "READY_FOR_HUMAN_REVIEW"
+            else:
+                decision = "REVISE"
+                status = (
+                    "REVISION_LIMIT_REACHED"
+                    if revision_round >= MAX_REVISIONS
+                    else "DRAFT"
+                )
+                semantic_review = (
+                    "REVISE\n\n"
+                    "AUTONOMOUS QUALITY PREFLIGHT DID NOT PASS.\n"
+                    + "\n".join(quality.reasons)
+                    + "\nFocused tests: "
+                    + (
+                        ", ".join(quality.focused_test_ids)
+                        if quality.focused_test_ids
+                        else "<none>"
+                    )
+                    + "\nRegression tests: "
+                    + (
+                        ", ".join(quality.regression_test_ids)
+                        if quality.regression_test_ids
+                        else "<none>"
+                    )
+                )
 
         elif decision == "REJECT":
             status = "REJECTED"
@@ -475,11 +531,18 @@ def run_build_patch(
         and target_parts[1].endswith(".py")
     )
 
+    is_tests_tree_target = (
+        len(target_parts) >= 2
+        and target_parts[0].casefold() == "tests"
+        and target_parts[-1].endswith(".py")
+    )
+
     target_path = resolve_workspace_python_target(
         canonical_workspace_name,
         target_file,
         must_exist=is_existing_test_script,
         allow_existing_test_script=is_existing_test_script,
+        allow_tests_tree=is_tests_tree_target,
     )
 
     target_exists = target_path.exists()

@@ -62,11 +62,16 @@ def resolve_full_file_workspace_target(
             "target_file must be a non-empty string."
         )
 
+    normalized_target_file = target_file.replace("\\", "/").strip()
+
     resolved_target = resolve_workspace_python_target(
         canonical_workspace_name,
-        target_file,
+        normalized_target_file,
         must_exist=True,
         allow_existing_test_script=True,
+        allow_tests_tree=(
+            normalized_target_file.casefold().startswith("tests/")
+        ),
     ).resolve()
 
     try:
@@ -92,9 +97,18 @@ def resolve_full_file_workspace_target(
         and canonical_target_file.count("/") == 1
     )
 
-    if not is_app_target and not is_existing_test_script:
+    is_tests_target = (
+        canonical_target_file.startswith("tests/")
+        and canonical_target_file.endswith(".py")
+    )
+
+    if (
+        not is_app_target
+        and not is_existing_test_script
+        and not is_tests_target
+    ):
         raise RuntimeError(
-            "Target must be inside app/ or an explicitly allowed "
+            "Target must be inside app/, tests/, or an explicitly allowed "
             "existing scripts/test_*.py file."
         )
 
@@ -252,10 +266,15 @@ def validate_new_target(
         canonical_workspace_name
     )
 
+    normalized_target_file = target_file.replace("\\", "/").strip()
+
     target = resolve_workspace_python_target(
         canonical_workspace_name,
-        target_file,
+        normalized_target_file,
         must_exist=False,
+        allow_tests_tree=(
+            normalized_target_file.casefold().startswith("tests/")
+        ),
     ).resolve()
 
     try:
@@ -271,9 +290,12 @@ def validate_new_target(
             "NEW_FILE_V2 target escapes workspace."
         ) from exc
 
-    if not canonical_target_file.startswith("app/"):
+    if not (
+        canonical_target_file.startswith("app/")
+        or canonical_target_file.startswith("tests/")
+    ):
         raise RuntimeError(
-            "NEW_FILE_V2 target must be inside app/."
+            "NEW_FILE_V2 target must be inside app/ or tests/."
         )
 
     if not canonical_target_file.endswith(".py"):

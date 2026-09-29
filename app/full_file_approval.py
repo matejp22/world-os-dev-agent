@@ -411,12 +411,16 @@ def approve_record(
     target_scope_passed = False
     if workspace_metadata_valid and target_metadata_valid:
         try:
+            normalized_target = target_file.strip().replace("\\", "/")
             resolve_workspace_python_target(
                 workspace_name.strip(),
-                target_file.strip(),
+                normalized_target,
                 must_exist=False,
                 allow_existing_test_script=(
                     format_version == "FULL_FILE_V2"
+                ),
+                allow_tests_tree=(
+                    normalized_target.casefold().startswith("tests/")
                 ),
             )
             target_scope_passed = True
@@ -504,6 +508,11 @@ def approve_record(
         must_exist=(format_version == "FULL_FILE_V2"),
         allow_existing_test_script=(
             format_version == "FULL_FILE_V2"
+        ),
+        allow_tests_tree=(
+            canonical_target_file.replace("\\", "/")
+            .casefold()
+            .startswith("tests/")
         ),
     )
 

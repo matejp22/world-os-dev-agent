@@ -239,6 +239,7 @@ def inspect_repository_test_registry(
     )
 
     app_dir = workspace.path / "app"
+    tests_dir = workspace.path / "tests"
 
     if not app_dir.exists():
         raise RuntimeError(
@@ -250,15 +251,29 @@ def inspect_repository_test_registry(
             f"Workspace app path is not a directory: {app_dir}"
         )
 
+    app_test_paths = tuple(
+        path
+        for path in app_dir.glob("test_*.py")
+        if path.is_file()
+        and path.name != "test_registry.py"
+    )
+
+    tests_tree_paths = (
+        tuple(
+            path
+            for path in tests_dir.rglob("test_*.py")
+            if path.is_file()
+        )
+        if tests_dir.exists() and tests_dir.is_dir()
+        else ()
+    )
+
     test_paths = tuple(
         sorted(
-            (
-                path
-                for path in app_dir.glob("test_*.py")
-                if path.is_file()
-                and path.name != "test_registry.py"
+            app_test_paths + tests_tree_paths,
+            key=lambda path: (
+                path.relative_to(workspace.path).as_posix().casefold()
             ),
-            key=lambda path: path.name.casefold(),
         )
     )
 
@@ -317,11 +332,22 @@ def inspect_repository_test_registry(
             .as_posix()
         )
 
+        if relative_path.startswith("app/"):
+            test_id = path.stem
+            module = f"app.{path.stem}"
+        else:
+            test_id = (
+                relative_path[:-3]
+                .replace("/", "__")
+                .replace("\\", "__")
+            )
+            module = relative_path[:-3].replace("/", ".")
+
         entries.append(
             TestRegistryEntry(
-                test_id=path.stem,
+                test_id=test_id,
                 path=relative_path,
-                module=f"app.{path.stem}",
+                module=module,
                 style=style,
                 test_functions=test_functions,
                 imported_app_modules=imported_app_modules,
@@ -330,7 +356,7 @@ def inspect_repository_test_registry(
                 compile_target=relative_path,
                 execution_validated=is_test_execution_validated(
                     workspace.name,
-                    path.stem,
+                    test_id,
                     relative_path,
                 ),
             )
@@ -343,7 +369,7 @@ def inspect_repository_test_registry(
         inspected=True,
         reason=(
             "Deterministic read-only discovery of top-level "
-            "app/test_*.py files using Python AST inspection. "
+            "app/test_*.py and tests/**/test_*.py files using Python AST inspection. "
             "No tests or CI actions were executed."
         ),
     )
