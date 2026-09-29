@@ -479,6 +479,7 @@ def _validate_build_patch_result(
         "READY_FOR_HUMAN_REVIEW",
         "REJECTED",
         "DRAFT",
+        "REVISION_LIMIT_REACHED",
     }:
         raise RuntimeError(
             f"Build patch result has unknown status: {result.status}"
@@ -1150,7 +1151,10 @@ def run_continue_milestone(
         return 1
 
     if (
-        patch_result.status == "DRAFT"
+        patch_result.status in {
+            "DRAFT",
+            "REVISION_LIMIT_REACHED",
+        }
         and patch_result.semantic_decision == "REVISE"
     ):
         revision_round = patch_result.revision_round
