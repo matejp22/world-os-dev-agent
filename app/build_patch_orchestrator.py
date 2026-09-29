@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.ai_file_candidate import generate_candidate
+from app.ai_companion_test_candidate import generate_companion_test_candidate
 from app.ai_full_file_reviewer import review_full_file_candidate
 from app.ai_full_file_revision import revise_candidate
 from app.deterministic_diff import build_unified_diff
@@ -222,6 +223,94 @@ def _write_queue_record(
     )
 
     return queue_file
+
+
+def _parse_companion_test_candidate(
+    candidate: str,
+) -> tuple[str, str]:
+    target_file = extract_section(
+        candidate,
+        "TARGET_FILE:",
+        "RATIONALE:",
+    ).replace("\\", "/").strip()
+
+    new_content = extract_section(
+        candidate,
+        "NEW_FILE_CONTENT:",
+    )
+
+    parts = tuple(
+        part
+        for part in target_file.split("/")
+        if part
+    )
+
+    if (
+        len(parts) < 2
+        or parts[0] != "tests"
+        or not parts[-1].startswith("test_")
+        or not parts[-1].endswith(".py")
+        or any(part in {".", ".."} for part in parts)
+    ):
+        raise RuntimeError(
+            "Companion test target must be a normalized "
+            "tests/**/test_*.py path."
+        )
+
+    return target_file, new_content
+
+
+def _build_companion_test_patch(
+    *,
+    goal: str,
+    workspace_name: str,
+    source_target_file: str,
+    source_candidate_content: str,
+    source_patch_id: str,
+) -> BuildPatchResult:
+    raw = generate_companion_test_candidate(
+        goal=goal,
+        workspace_name=workspace_name,
+        source_target_file=source_target_file,
+        source_candidate_content=source_candidate_content,
+    )
+
+    target_file, new_content = _parse_companion_test_candidate(
+        raw
+    )
+
+    target_path = resolve_workspace_python_target(
+        workspace_name,
+        target_file,
+        must_exist=False,
+        allow_tests_tree=True,
+    )
+
+    if target_path.exists():
+        raise RuntimeError(
+            "Autonomous companion test target already exists; "
+            "source quality selection should have discovered it."
+        )
+
+    attempt = _build_candidate_attempt(
+        clean_goal=(
+            "Create focused companion regression test for "
+            + source_target_file
+            + ". Original goal: "
+            + goal
+        ),
+        canonical_workspace_name=workspace_name,
+        target_file=target_file,
+        target_path=target_path,
+        target_exists=False,
+        format_version="NEW_FILE_V2",
+        new_content=new_content,
+        revision_round=0,
+        lineage=[source_patch_id],
+        previous_patch_id=source_patch_id,
+    )
+
+    return attempt.result
 
 
 def _parse_revised_content(
@@ -628,6 +717,25 @@ def run_build_patch(
             "REJECT",
         }:
             return result
+
+        if (
+            result.semantic_decision == "REVISE"
+            and "no focused tests selected"
+            in result.semantic_review.casefold()
+        ):
+            print(
+                "BUILD PATCH: no focused tests selected; "
+                "generating autonomous companion test...",
+                flush=True,
+            )
+
+            return _build_companion_test_patch(
+                goal=clean_goal,
+                workspace_name=canonical_workspace_name,
+                source_target_file=target_file,
+                source_candidate_content=attempt.candidate_text,
+                source_patch_id=result.patch_id,
+            )
 
         if result.semantic_decision != "REVISE":
             return result
