@@ -116,10 +116,22 @@ def parse_candidate(
         and parts[1].endswith(".py")
     )
 
-    if not is_app_target and not is_existing_test_script:
+    is_tests_tree_target = (
+        len(parts) >= 2
+        and parts[0] == "tests"
+        and parts[-1].startswith("test_")
+        and parts[-1].endswith(".py")
+        and all(part not in {".", ".."} for part in parts)
+    )
+
+    if (
+        not is_app_target
+        and not is_existing_test_script
+        and not is_tests_tree_target
+    ):
         raise RuntimeError(
-            "Target must be inside app/ or a top-level "
-            "scripts/test_*.py file."
+            "Target must be inside app/, tests/**/test_*.py, "
+            "or a top-level scripts/test_*.py file."
         )
 
     return target_file, new_content
