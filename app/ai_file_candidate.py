@@ -32,9 +32,13 @@ IMPORTANT RULES:
   satisfied safely by modifying that file.
 - If the development goal clearly requires a new module that does not yet
   exist, you may instead propose exactly one new Python file.
-- A proposed new file must be inside app/ of the ACTIVE WORKSPACE.
-- Do not invent a second file, directory, migration, test file, database
-  object, or other side effect.
+- A proposed new production Python file must be inside app/ of the ACTIVE WORKSPACE.
+- When the development goal explicitly requires a test target, a Python test
+  file inside tests/**/test_*.py is also allowed.
+- If the development goal contains "Target exactly:", that exact normalized
+  workspace-relative path is mandatory. Never substitute another target.
+- Do not invent a second file, directory, migration, database object, or other
+  side effect.
 - For a new file, use CURRENT SOURCE FILES only as read-only contracts and
   architectural references; do not modify those referenced files.
 - Never select an unrelated existing file merely because the required new
@@ -50,7 +54,7 @@ IMPORTANT RULES:
 
 Return exactly:
 
-TARGET_FILE: app/file.py
+TARGET_FILE: <exact workspace-relative Python path>
 
 RATIONALE:
 short explanation

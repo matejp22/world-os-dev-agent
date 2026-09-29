@@ -813,6 +813,99 @@ def _run_autonomous_candidate_revision_loop(
         revision_round += 1
 
 
+
+def _extract_exact_target_from_goal(goal: str) -> str | None:
+    """Return a normalized workspace-relative target declared by Target exactly:."""
+
+    lines = goal.splitlines()
+
+    for index, raw_line in enumerate(lines):
+        line = raw_line.strip()
+
+        if line.casefold() == "target exactly:":
+            for following in lines[index + 1:]:
+                candidate = following.strip()
+
+                if candidate:
+                    return candidate.replace("\\", "/")
+
+            raise RuntimeError(
+                "Target exactly: was declared but no target path followed it."
+            )
+
+        prefix = "target exactly:"
+
+        if line.casefold().startswith(prefix):
+            candidate = line[len(prefix):].strip()
+
+            if not candidate:
+                raise RuntimeError(
+                    "Target exactly: was declared but target path is empty."
+                )
+
+            return candidate.replace("\\", "/")
+
+    return None
+
+
+def _generate_exact_target_candidate(
+    *,
+    clean_goal: str,
+    canonical_workspace_name: str,
+    exact_target: str | None,
+) -> tuple[str, str]:
+    """Generate until the declared exact target is respected.
+
+    Wrong-target AI output never enters patch history. There is no arbitrary
+    retry limit. A hard blocker is raised only after three identical invalid
+    generator responses, demonstrating deterministic stagnation.
+    """
+
+    repeated_invalid_count = 0
+    previous_invalid_response: str | None = None
+    generation_goal = clean_goal
+
+    while True:
+        raw_candidate = generate_candidate(
+            generation_goal,
+            canonical_workspace_name,
+        )
+
+        target_file, new_content = parse_candidate(
+            raw_candidate
+        )
+
+        if exact_target is None or target_file == exact_target:
+            return target_file, new_content
+
+        if raw_candidate == previous_invalid_response:
+            repeated_invalid_count += 1
+        else:
+            previous_invalid_response = raw_candidate
+            repeated_invalid_count = 1
+
+        if repeated_invalid_count >= 3:
+            raise RuntimeError(
+                "AUTONOMOUS_HARD_BLOCKER: candidate generator repeated "
+                "the same exact-target violation three consecutive times."
+            )
+
+        print(
+            "BUILD PATCH: generated target "
+            f"{target_file!r} violates exact target {exact_target!r}; "
+            "regenerating before patch lifecycle...",
+            flush=True,
+        )
+
+        generation_goal = (
+            clean_goal
+            + "\n\nEXACT TARGET ENFORCEMENT:\n"
+            + "The candidate TARGET_FILE MUST be exactly:\n"
+            + exact_target
+            + "\nDo not choose, create, rename, or substitute any other file."
+        )
+
+
 def run_build_patch(
     goal: str,
     workspace_name: str = "world-os-dev-agent",
@@ -830,23 +923,24 @@ def run_build_patch(
 
     canonical_workspace_name = workspace.name
 
+    exact_target = _extract_exact_target_from_goal(
+        clean_goal
+    )
+
     print(
         "BUILD PATCH: generating candidate...",
         flush=True,
     )
 
-    raw_candidate = generate_candidate(
-        clean_goal,
-        canonical_workspace_name,
+    target_file, new_content = _generate_exact_target_candidate(
+        clean_goal=clean_goal,
+        canonical_workspace_name=canonical_workspace_name,
+        exact_target=exact_target,
     )
 
     print(
         "BUILD PATCH: candidate generated.",
         flush=True,
-    )
-
-    target_file, new_content = parse_candidate(
-        raw_candidate
     )
 
     print(
