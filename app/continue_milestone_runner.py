@@ -26,6 +26,9 @@ from app.dev_task_state import (
     plan_task_state_transition,
 )
 from app.git_workspace_status import inspect_git_workspace_status
+from app.milestone_execution_ledger import (
+    load_milestone_execution_ledger,
+)
 from app.output_sanitizer import sanitize_output
 from app.production_autonomy_gate import evaluate_production_autonomy
 from app.test_execution import (
@@ -50,6 +53,83 @@ def _run_data_file_recovery_preflight():
     return run_data_file_recovery_cycle(
         queue_dir=PROJECT_ROOT / "pending_patches",
     )
+
+
+def _resolve_execution_ledger_objective(
+    *,
+    workspace_name: str,
+    active_milestone: str,
+    fallback_objective: str,
+) -> str:
+    if workspace_name != "world-os-research-engine":
+        return fallback_objective.strip()
+
+    ledger = load_milestone_execution_ledger()
+
+    if ledger is None:
+        return fallback_objective.strip()
+
+    if (
+        ledger.milestone_title.strip().casefold()
+        != active_milestone.strip().casefold()
+    ):
+        raise RuntimeError(
+            "Canonical execution ledger milestone does not match "
+            "the active milestone."
+        )
+
+    in_progress = tuple(
+        step
+        for step in ledger.steps
+        if step.status == "IN_PROGRESS"
+    )
+
+    if len(in_progress) > 1:
+        raise RuntimeError(
+            "Canonical execution ledger contains multiple "
+            "IN_PROGRESS steps."
+        )
+
+    if in_progress:
+        step = in_progress[0]
+    else:
+        step = next(
+            (
+                candidate
+                for candidate in ledger.steps
+                if candidate.status == "PLANNED"
+            ),
+            None,
+        )
+
+    if step is None:
+        return fallback_objective.strip()
+
+    parts = [
+        (
+            "Execute canonical milestone ledger step "
+            f"{step.step_id}: {step.title}."
+        ),
+    ]
+
+    if step.target_files:
+        parts.append(
+            "Allowed target files for this step: "
+            + ", ".join(step.target_files)
+            + "."
+        )
+
+    if step.note:
+        parts.append(
+            "Step requirements: "
+            + step.note.strip()
+        )
+
+    parts.append(
+        "Do not select work outside this canonical ledger step."
+    )
+
+    return "\n".join(parts)
 
 
 def _extract_planned_objective(
@@ -205,16 +285,26 @@ def _run_bounded_build_cycle(
     workspace_selection,
     rejected_objective: str | None = None,
     semantic_rejection_review: str | None = None,
+    forced_objective: str | None = None,
 ) -> tuple[str, BuildPatchResult]:
-    planner_output = plan_next_build(
-        planner_instruction,
-        active_milestone=active_milestone,
-        active_objective=persistent_objective,
-    )
+    if forced_objective is not None:
+        selected_objective = forced_objective.strip()
 
-    selected_objective = _extract_planned_objective(
-        planner_output
-    )
+        if not selected_objective:
+            raise RuntimeError(
+                "Forced canonical objective must not be empty."
+            )
+
+    else:
+        planner_output = plan_next_build(
+            planner_instruction,
+            active_milestone=active_milestone,
+            active_objective=persistent_objective,
+        )
+
+        selected_objective = _extract_planned_objective(
+            planner_output
+        )
 
     print(f"{cycle_label} OBJECTIVE")
     print("-" * 72)
@@ -925,8 +1015,15 @@ def run_continue_milestone(
         )
         return 1
 
-    persistent_objective = state.objective
     active_milestone = state.milestone
+
+    persistent_objective = (
+        _resolve_execution_ledger_objective(
+            workspace_name=workspace_selection.workspace.name,
+            active_milestone=active_milestone,
+            fallback_objective=state.objective,
+        )
+    )
 
     initial_planner_instruction = (
         "Select exactly one small bounded development objective inside "
@@ -949,6 +1046,7 @@ def run_continue_milestone(
             persistent_objective=persistent_objective,
             developer_instruction=developer_instruction,
             workspace_selection=workspace_selection,
+            forced_objective=persistent_objective,
         )
     except Exception as exc:
         print(

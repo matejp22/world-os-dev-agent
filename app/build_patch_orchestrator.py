@@ -260,6 +260,86 @@ def _parse_companion_test_candidate(
     return target_file, new_content
 
 
+def _select_companion_test_target(
+    *,
+    workspace_name: str,
+    generated_target_file: str,
+    source_target_file: str,
+) -> str:
+    workspace = get_workspace_profile(
+        workspace_name
+    )
+
+    workspace_root = workspace.path.resolve()
+
+    normalized = generated_target_file.replace(
+        "\\",
+        "/",
+    ).strip()
+
+    generated_path = (
+        workspace_root
+        / normalized
+    ).resolve()
+
+    try:
+        generated_path.relative_to(
+            workspace_root
+        )
+    except ValueError as exc:
+        raise RuntimeError(
+            "Generated companion target escapes workspace."
+        ) from exc
+
+    if (
+        generated_path.parent.exists()
+        and generated_path.parent.is_dir()
+    ):
+        return normalized
+
+    tests_root = (
+        workspace_root
+        / "tests"
+    ).resolve()
+
+    if not tests_root.exists() or not tests_root.is_dir():
+        raise RuntimeError(
+            "Workspace tests directory does not exist."
+        )
+
+    source_stem = Path(
+        source_target_file.replace("\\", "/")
+    ).stem
+
+    fallback = (
+        "tests/test_"
+        + source_stem
+        + ".py"
+    )
+
+    fallback_path = (
+        workspace_root
+        / fallback
+    ).resolve()
+
+    try:
+        fallback_path.relative_to(
+            tests_root
+        )
+    except ValueError as exc:
+        raise RuntimeError(
+            "Companion fallback escapes tests directory."
+        ) from exc
+
+    if fallback_path.exists():
+        raise RuntimeError(
+            "Companion fallback target already exists; "
+            "focused-test discovery should have selected it."
+        )
+
+    return fallback
+
+
 def _build_companion_test_patch(
     *,
     goal: str,
@@ -275,8 +355,16 @@ def _build_companion_test_patch(
         source_candidate_content=source_candidate_content,
     )
 
-    target_file, new_content = _parse_companion_test_candidate(
-        raw
+    generated_target_file, new_content = (
+        _parse_companion_test_candidate(
+            raw
+        )
+    )
+
+    target_file = _select_companion_test_target(
+        workspace_name=workspace_name,
+        generated_target_file=generated_target_file,
+        source_target_file=source_target_file,
     )
 
     target_path = resolve_workspace_python_target(

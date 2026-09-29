@@ -71,6 +71,15 @@ def test_build_companion_test_patch_creates_new_test_candidate(
 
     monkeypatch.setattr(
         orchestrator,
+        "get_workspace_profile",
+        lambda _: SimpleNamespace(
+            name="world-os-research-engine",
+            path=tmp_path / "workspace",
+        ),
+    )
+
+    monkeypatch.setattr(
+        orchestrator,
         "generate_companion_test_candidate",
         lambda **_kwargs: (
             "TARGET_FILE: tests/research/test_example.py\n\n"
@@ -121,3 +130,40 @@ def test_build_companion_test_patch_creates_new_test_candidate(
     assert captured["target_exists"] is False
     assert captured["format_version"] == "NEW_FILE_V2"
     assert captured["previous_patch_id"] == "source-patch"
+
+
+def test_companion_target_falls_back_to_existing_tests_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "workspace"
+    (workspace / "tests").mkdir(
+        parents=True,
+    )
+
+    monkeypatch.setattr(
+        orchestrator,
+        "get_workspace_profile",
+        lambda _: SimpleNamespace(
+            name="world-os-research-engine",
+            path=workspace,
+        ),
+    )
+
+    selected = (
+        orchestrator._select_companion_test_target(
+            workspace_name="world-os-research-engine",
+            generated_target_file=(
+                "tests/importers/port_core_v2/"
+                "test_autonomous_policy.py"
+            ),
+            source_target_file=(
+                "app/importers/port_core_v2/"
+                "autonomous_policy.py"
+            ),
+        )
+    )
+
+    assert selected == (
+        "tests/test_autonomous_policy.py"
+    )
