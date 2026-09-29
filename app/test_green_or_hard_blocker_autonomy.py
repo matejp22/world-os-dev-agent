@@ -218,3 +218,73 @@ def test_autonomous_loop_stops_only_on_proven_stagnation(
             format_version="FULL_FILE_V2",
             initial_content="same content",
         )
+
+
+def test_autonomous_loop_recovers_from_revision_target_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attempts = [
+        SimpleNamespace(
+            result=_result(
+                patch_id="p1",
+                candidate_sha256="sha1",
+                decision="REVISE",
+                review="REVISE\nneeds correction",
+                status="DRAFT",
+            ),
+            candidate_text="VALUE = 1\n",
+            diff="diff1",
+        ),
+        SimpleNamespace(
+            result=_result(
+                patch_id="p2",
+                candidate_sha256="sha2",
+                decision="APPROVE_FOR_HUMAN_REVIEW",
+                review="approved",
+                status="READY_FOR_HUMAN_REVIEW",
+            ),
+            candidate_text="VALUE = 2\n",
+            diff="diff2",
+        ),
+    ]
+
+    monkeypatch.setattr(
+        orchestrator,
+        "_build_candidate_attempt",
+        lambda **_kwargs: attempts.pop(0),
+    )
+
+    revisions = iter(
+        [
+            (
+                "TARGET_FILE: app/wrong.py\n\n"
+                "RATIONALE:\nwrong target\n\n"
+                "NEW_FILE_CONTENT:\nVALUE = 2\n"
+            ),
+            (
+                "TARGET_FILE: app/example.py\n\n"
+                "RATIONALE:\ncorrect target\n\n"
+                "NEW_FILE_CONTENT:\nVALUE = 2\n"
+            ),
+        ]
+    )
+
+    monkeypatch.setattr(
+        orchestrator,
+        "revise_candidate",
+        lambda **_kwargs: next(revisions),
+    )
+
+    result = orchestrator._run_autonomous_candidate_revision_loop(
+        clean_goal="repair until green",
+        canonical_workspace_name="world-os-dev-agent",
+        target_file="app/example.py",
+        target_path=tmp_path / "example.py",
+        target_exists=True,
+        format_version="FULL_FILE_V2",
+        initial_content="VALUE = 1\n",
+    )
+
+    assert result.status == "READY_FOR_HUMAN_REVIEW"
+    assert result.patch_id == "p2"

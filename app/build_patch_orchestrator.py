@@ -753,18 +753,60 @@ def _run_autonomous_candidate_revision_loop(
                 flush=True,
             )
 
-        revised = revise_candidate(
-            goal=clean_goal,
-            target_file=target_file,
-            current_content=attempt.candidate_text,
-            diff=attempt.diff,
-            semantic_review=revision_feedback,
-        )
+        revision_response_signature: str | None = None
+        repeated_revision_response_count = 0
 
-        new_content = _parse_revised_content(
-            revised,
-            target_file,
-        )
+        while True:
+            revised = revise_candidate(
+                goal=clean_goal,
+                target_file=target_file,
+                current_content=attempt.candidate_text,
+                diff=attempt.diff,
+                semantic_review=revision_feedback,
+            )
+
+            try:
+                new_content = _parse_revised_content(
+                    revised,
+                    target_file,
+                )
+                break
+            except RuntimeError as exc:
+                message = str(exc)
+
+                if (
+                    "Revision attempted to change target file."
+                    not in message
+                ):
+                    raise
+
+                if revised == revision_response_signature:
+                    repeated_revision_response_count += 1
+                else:
+                    revision_response_signature = revised
+                    repeated_revision_response_count = 1
+
+                if repeated_revision_response_count >= 3:
+                    raise RuntimeError(
+                        "AUTONOMOUS_HARD_BLOCKER: revision model "
+                        "repeated the same invalid target-changing "
+                        "response three consecutive times."
+                    ) from exc
+
+                print(
+                    "BUILD PATCH: revision attempted to change target; "
+                    "requesting target-locked repair...",
+                    flush=True,
+                )
+
+                revision_feedback = (
+                    "TARGET LOCK VIOLATION.\n"
+                    f"The target MUST remain exactly: {target_file}\n"
+                    "Do not rename, relocate, or substitute the target file.\n"
+                    "Return a corrected revision for exactly that target.\n\n"
+                    "ORIGINAL VALIDATION FEEDBACK:\n"
+                    + revision_feedback
+                )
 
         lineage.append(result.patch_id)
         previous_patch_id = result.patch_id
