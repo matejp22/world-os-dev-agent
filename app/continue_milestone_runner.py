@@ -30,6 +30,10 @@ from app.milestone_execution_ledger import (
     load_milestone_execution_ledger,
 )
 from app.output_sanitizer import sanitize_output
+from app.post_completion_reconciler import (
+    reconcile_completed_execution_step,
+    record_patch_for_active_step,
+)
 from app.production_autonomy_gate import evaluate_production_autonomy
 from app.test_execution import (
     BLOCKED_TEST_IDS,
@@ -393,6 +397,22 @@ def _run_bounded_build_cycle(
     _print_next_action_handoff(
         patch_result=patch_result,
     )
+
+    if (
+        workspace_selection.workspace.name
+        == "world-os-research-engine"
+        and patch_result.status == "READY_FOR_HUMAN_REVIEW"
+    ):
+        recorded = record_patch_for_active_step(
+            patch_result.patch_id
+        )
+
+        if recorded:
+            print(
+                "EXECUTION LEDGER: READY patch recorded "
+                "for the active canonical step."
+            )
+            print()
 
     return (
         selected_objective,
@@ -827,6 +847,45 @@ def run_continue_milestone(
             f"ACTIVE WORKSPACE RESOLUTION FAILED: {exc}"
         )
         return 1
+
+    if (
+        workspace_selection.workspace.name
+        == "world-os-research-engine"
+    ):
+        try:
+            reconciliation = (
+                reconcile_completed_execution_step(
+                    workspace_selection.workspace.name
+                )
+            )
+        except Exception as exc:
+            print(
+                "POST-COMPLETION STATE RECONCILIATION FAILED: "
+                f"{exc}"
+            )
+            print(
+                "Progression stopped safely before new work."
+            )
+            return 1
+
+        if reconciliation.changed:
+            print(
+                "POST-COMPLETION STATE RECONCILIATION"
+            )
+            print("-" * 72)
+            print(
+                "Completed step: "
+                f"{reconciliation.completed_step_id}"
+            )
+            print(
+                "Next step: "
+                f"{reconciliation.next_step_id}"
+            )
+            print(
+                "Milestone completed: "
+                f"{reconciliation.milestone_completed}"
+            )
+            print()
 
     print("=" * 72)
     print("WORLD OS DEV AGENT - CONTINUE CURRENT MILESTONE")

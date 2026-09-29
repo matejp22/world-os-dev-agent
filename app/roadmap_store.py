@@ -347,3 +347,99 @@ def load_project_roadmap(
         )
 
     return project
+
+
+def project_roadmap_to_dict(
+    roadmap: ProjectRoadmap,
+) -> dict[str, object]:
+    if not isinstance(roadmap, ProjectRoadmap):
+        raise RuntimeError("roadmap must be a ProjectRoadmap.")
+
+    payload = {
+        "project_id": roadmap.project_id,
+        "title": roadmap.title,
+        "workspace_name": roadmap.workspace_name,
+        "nodes": [
+            {
+                "node_id": node.node_id,
+                "title": node.title,
+                "kind": node.kind,
+                "parent_id": node.parent_id,
+                "status": node.status,
+                "weight": node.weight,
+                "dependencies": list(node.dependencies),
+                "verification_status": node.verification_status,
+                "patch_id": node.patch_id,
+                "completed_at": node.completed_at,
+            }
+            for node in roadmap.nodes
+        ],
+    }
+
+    # Round-trip through the existing strict parser before persistence.
+    project_roadmap_from_dict(payload)
+    return payload
+
+
+def save_project_roadmap(
+    roadmap: ProjectRoadmap,
+    roadmap_dir: Path = PROJECT_ROADMAP_DIR,
+) -> None:
+    import os
+    import tempfile
+
+    if not isinstance(roadmap, ProjectRoadmap):
+        raise RuntimeError("roadmap must be a ProjectRoadmap.")
+
+    roadmap_path = roadmap_path_for_workspace(
+        roadmap.workspace_name,
+        roadmap_dir,
+    )
+
+    roadmap_path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    payload = (
+        json.dumps(
+            project_roadmap_to_dict(roadmap),
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+
+    temporary_path = None
+
+    try:
+        fd, name = tempfile.mkstemp(
+            prefix=f".{roadmap_path.name}.",
+            suffix=".tmp",
+            dir=str(roadmap_path.parent),
+        )
+        temporary_path = Path(name)
+
+        with os.fdopen(
+            fd,
+            "w",
+            encoding="utf-8",
+            newline="\n",
+        ) as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+
+        os.replace(
+            temporary_path,
+            roadmap_path,
+        )
+        temporary_path = None
+
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink()
+            except FileNotFoundError:
+                pass
