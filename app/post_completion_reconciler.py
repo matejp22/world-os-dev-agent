@@ -306,6 +306,46 @@ def reconcile_completed_execution_step(
 
         final_patch_id = current.patch_ids[-1]
 
+        current_index = next(
+            index
+            for index, node in enumerate(roadmap.nodes)
+            if node.node_id == ledger.milestone_id
+        )
+
+        next_milestone = next(
+            (
+                node
+                for node in roadmap.nodes[current_index + 1 :]
+                if node.kind == "MILESTONE"
+            ),
+            None,
+        )
+
+        activate_next_milestone_id = None
+
+        if (
+            next_milestone is not None
+            and next_milestone.status == "NOT_STARTED"
+            and next_milestone.verification_status == "PENDING"
+            and next_milestone.patch_id is None
+            and next_milestone.completed_at is None
+        ):
+            dependencies_ready = all(
+                any(
+                    dependency.node_id == dependency_id
+                    and dependency.kind == "MILESTONE"
+                    and dependency.status == "COMPLETED"
+                    and dependency.verification_status == "PASSED"
+                    for dependency in roadmap.nodes
+                )
+                for dependency_id in next_milestone.dependencies
+            )
+
+            if dependencies_ready:
+                activate_next_milestone_id = (
+                    next_milestone.node_id
+                )
+
         updated_nodes = tuple(
             replace(
                 node,
@@ -315,7 +355,18 @@ def reconcile_completed_execution_step(
                 completed_at=completed_at,
             )
             if node.node_id == ledger.milestone_id
-            else node
+            else (
+                replace(
+                    node,
+                    status="IN_PROGRESS",
+                )
+                if (
+                    activate_next_milestone_id is not None
+                    and node.node_id
+                    == activate_next_milestone_id
+                )
+                else node
+            )
             for node in roadmap.nodes
         )
 
