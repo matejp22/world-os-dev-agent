@@ -57,6 +57,17 @@ QUEUE_DIR = ROOT / "pending_patches"
 LIVE_STATE_PATH = ROOT / "context" / "LIVE_STATE.md"
 ROADMAP_PATH = ROOT / "context" / "ROADMAP.md"
 
+RESEARCH_ENGINE_ROOT = Path(
+    r"C:\Users\matej\Documents\world-os-research-engine"
+)
+RESEARCH_ENGINE_PYTHON = (
+    RESEARCH_ENGINE_ROOT
+    / ".venv"
+    / "Scripts"
+    / "python.exe"
+)
+RESEARCH_TIMEOUT_SECONDS = 600
+
 
 def resolve_console_version() -> str:
     try:
@@ -1062,6 +1073,7 @@ console_section = st.radio(
     "Console section",
     options=(
         "Run",
+        "Research",
         "Roadmap",
         "Session history",
         "Patch review",
@@ -1390,6 +1402,151 @@ if console_section == "Run":
                         stderr,
                         language="text",
                     )
+
+if console_section == "Research":
+    st.subheader("Autonomous Research")
+
+    st.caption(
+        "Runs the World OS Research Engine in read-only mode. "
+        "No database, Supabase, approval, or production writes "
+        "are performed."
+    )
+
+    research_objective = st.text_area(
+        "Research objective",
+        value="Research Kmetija Pustotnik farm assets",
+        height=120,
+        key="research-objective",
+    )
+
+    research_clicked = st.button(
+        "Run autonomous research",
+        type="primary",
+        key="run-autonomous-research",
+    )
+
+    if research_clicked:
+        clean_objective = research_objective.strip()
+
+        if not clean_objective:
+            st.error(
+                "Please enter a research objective."
+            )
+        elif not RESEARCH_ENGINE_PYTHON.exists():
+            st.error(
+                "Research Engine Python interpreter was not found: "
+                f"{RESEARCH_ENGINE_PYTHON}"
+            )
+        else:
+            command = [
+                str(RESEARCH_ENGINE_PYTHON),
+                "-m",
+                "app.research.autonomous_cli",
+                "--objective",
+                clean_objective,
+            ]
+
+            with st.spinner(
+                "World OS Research Engine is researching..."
+            ):
+                try:
+                    result = subprocess.run(
+                        command,
+                        cwd=RESEARCH_ENGINE_ROOT,
+                        capture_output=True,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        timeout=RESEARCH_TIMEOUT_SECONDS,
+                    )
+                except subprocess.TimeoutExpired:
+                    result = None
+
+            if result is None:
+                st.error(
+                    "Research run exceeded the safe timeout."
+                )
+            else:
+                stdout = result.stdout.strip()
+                stderr = result.stderr.strip()
+
+                if result.returncode != 0:
+                    st.error(
+                        "Research failed with exit code "
+                        f"{result.returncode}."
+                    )
+
+                    if stdout:
+                        with st.expander(
+                            "Show research stdout"
+                        ):
+                            st.code(
+                                stdout,
+                                language="text",
+                            )
+
+                    if stderr:
+                        with st.expander(
+                            "Show research stderr"
+                        ):
+                            st.code(
+                                stderr,
+                                language="text",
+                            )
+                else:
+                    try:
+                        payload = json.loads(stdout)
+                    except json.JSONDecodeError:
+                        st.error(
+                            "Research Engine returned invalid JSON."
+                        )
+
+                        with st.expander(
+                            "Show raw research output"
+                        ):
+                            st.code(
+                                stdout or "<no stdout>",
+                                language="text",
+                            )
+                    else:
+                        st.success(
+                            "Autonomous research completed."
+                        )
+
+                        st.write(
+                            "**Read-only:** "
+                            f"{payload.get('read_only')}"
+                        )
+                        st.write(
+                            "**Objective:** "
+                            f"{payload.get('objective')}"
+                        )
+
+                        plan = payload.get("plan")
+
+                        if isinstance(plan, dict):
+                            domain_id = plan.get("domain_id")
+                            target_code = plan.get("target_code")
+                            asset_type = plan.get("asset_type")
+
+                            if domain_id:
+                                st.write(
+                                    f"**Domain:** {domain_id}"
+                                )
+
+                            if target_code:
+                                st.write(
+                                    f"**Target:** {target_code}"
+                                )
+
+                            if asset_type:
+                                st.write(
+                                    f"**Asset type:** {asset_type}"
+                                )
+
+                        st.subheader("Research result")
+                        st.json(payload)
+
 
 if console_section == "Session history":
     st.subheader("Recent autonomous sessions")

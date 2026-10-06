@@ -443,7 +443,7 @@
       "node_id": "milestone-roads",
       "parent_id": "group-roads",
       "patch_id": null,
-      "status": "IN_PROGRESS",
+      "status": "NOT_STARTED",
       "title": "Roads Production-Ready",
       "verification_status": "PENDING",
       "weight": 10.0
@@ -719,19 +719,35 @@
       "node_id": "group-autonomous-multidomain-research",
       "parent_id": null,
       "patch_id": null,
-      "status": "NOT_STARTED",
+      "status": "IN_PROGRESS",
       "title": "Autonomous Multi-domain Research Engine",
       "verification_status": "NOT_REQUIRED",
       "weight": 0.0
     },
     {
+      "completed_at": "2026-10-06T08:57:00+02:00",
+      "dependencies": [
+        "milestone-cross-domain-framework"
+      ],
+      "kind": "MILESTONE",
+      "node_id": "milestone-autonomous-runtime-console-integration",
+      "parent_id": "group-autonomous-multidomain-research",
+      "patch_id": null,
+      "status": "COMPLETED",
+      "title": "Objective-only Runtime & Console Integration",
+      "verification_status": "PASSED",
+      "weight": 3.0
+    },
+    {
       "completed_at": null,
-      "dependencies": [],
+      "dependencies": [
+        "milestone-autonomous-runtime-console-integration"
+      ],
       "kind": "MILESTONE",
       "node_id": "milestone-autonomous-multidomain-research",
       "parent_id": "group-autonomous-multidomain-research",
       "patch_id": null,
-      "status": "NOT_STARTED",
+      "status": "IN_PROGRESS",
       "title": "Autonomous Multi-domain Research Engine Production-Ready",
       "verification_status": "PENDING",
       "weight": 10.0

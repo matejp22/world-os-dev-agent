@@ -175,6 +175,36 @@ Safety boundaries:
 
 ---
 
+### V2.1 verified state ? 2026-10-06
+
+Completed integration outcomes:
+
+- Developer Console now has a dedicated Research execution section.
+- Development orchestration and Research Engine execution remain separate.
+- Research Engine executes in its own workspace and Python runtime.
+- Objective-only autonomous research runtime is implemented.
+- Read-only autonomous Research Engine CLI is implemented.
+- Production discovery, HTTP source-content retrieval, model routing,
+  extraction, and identity-resolution composition is wired.
+- Cross-domain trusted research foundation covers 13 domains.
+- Trusted canonical identity remains separate from discovery-facing names.
+- Live Console-to-Research-Engine execution has been reached and verified.
+- Canonical Research Engine test suite is green with 254 passed tests.
+- No autonomous database or Supabase writes were introduced.
+
+Current Research Engine milestone:
+
+**Autonomous Multi-domain Research Engine Production-Ready**
+
+Next bounded objective:
+
+Expand trusted target planning from one known subject per domain to multiple
+trusted subjects inside a domain, beginning with Agriculture, while preserving
+deterministic exact-one resolution, canonical identity stability, trusted-source
+policy enforcement, read-only execution, and human-controlled development.
+
+---
+
 ## Later phases
 
 ### V2.x
