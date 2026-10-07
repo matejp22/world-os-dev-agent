@@ -175,33 +175,61 @@ Safety boundaries:
 
 ---
 
-### V2.1 verified state ? 2026-10-06
+### V2.1 verified state ? 2026-10-07
 
 Completed integration outcomes:
 
-- Developer Console now has a dedicated Research execution section.
+- Developer Console has a dedicated Research execution section.
 - Development orchestration and Research Engine execution remain separate.
 - Research Engine executes in its own workspace and Python runtime.
-- Objective-only autonomous research runtime is implemented.
+- Objective-only autonomous Research Engine runtime is implemented.
 - Read-only autonomous Research Engine CLI is implemented.
-- Production discovery, HTTP source-content retrieval, model routing,
-  extraction, and identity-resolution composition is wired.
+- Production discovery, HTTP and PDF source-content retrieval, model routing,
+  extraction, grounding, source policy, and identity-resolution composition
+  are wired.
 - Cross-domain trusted research foundation covers 13 domains.
 - Trusted canonical identity remains separate from discovery-facing names.
-- Live Console-to-Research-Engine execution has been reached and verified.
-- Canonical Research Engine test suite is green with 254 passed tests.
+- Multi-target trusted autonomous research is implemented across the
+  production domain set.
+- Agriculture, Roads, Rail, Airports, Telecom, Water Infrastructure,
+  Industry / Manufacturing, Logistics Facilities, Cities,
+  Real Estate / Built Environment, Natural Resources, Oil & Gas,
+  and PORT trusted research paths have been expanded and verified.
+- PORT_CORE_V2 preserves the legacy trusted canonical identity model
+  instead of generic WOS-ENTITY IDs.
+- Port of Antwerp-Bruges is verified as a second autonomous PORT target
+  using canonical ID WOS-PORT-BE-ANR-ZEE and parent
+  WOS-AREA-BE-ANR.
+- Antwerp-Bruges trusted exact-source execution is implemented through
+  the official newsroom source policy.
+- Antwerp-Bruges STS crane extraction is deterministically grounded so
+  arrived / awaiting-installation assets are not mislabeled as
+  operational / active.
+- Live objective-only Port of Antwerp-Bruges research completed
+  successfully in read-only mode.
+- Canonical Research Engine test suite is green with 328 passed tests.
 - No autonomous database or Supabase writes were introduced.
 
 Current Research Engine milestone:
 
-**Autonomous Multi-domain Research Engine Production-Ready**
+**Canonical Asset Population & World OS Web Map Integration**
 
 Next bounded objective:
 
-Expand trusted target planning from one known subject per domain to multiple
-trusted subjects inside a domain, beginning with Agriculture, while preserving
-deterministic exact-one resolution, canonical identity stability, trusted-source
-policy enforcement, read-only execution, and human-controlled development.
+Prepare the canonical asset population set produced during trusted
+multi-domain Research Engine development, inspect the existing Supabase
+schema and World OS Web read path, produce an exact database write preview,
+obtain explicit human approval, insert only the approved canonical records,
+and verify that the resulting assets are visible through world-os-web and
+its map.
+
+Safety boundaries remain unchanged:
+
+- database and Supabase writes require explicit preview and human approval,
+- no automatic Git writes,
+- no git add dot,
+- Research Engine execution remains read-only unless a bounded approved
+  write workflow explicitly requires otherwise.
 
 ---
 
