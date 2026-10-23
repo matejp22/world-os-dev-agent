@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.milestone_ledger_lock import milestone_ledger_lock
 
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
@@ -62,66 +63,66 @@ def record_patch_for_active_step(
     if not isinstance(patch_id, str) or not patch_id.strip():
         raise RuntimeError("patch_id must be a non-empty string.")
 
-    ledger = load_milestone_execution_ledger()
+    with milestone_ledger_lock(PROJECT_ROOT / "context"):
+        ledger = load_milestone_execution_ledger()
 
-    if ledger is None:
-        return False
+        if ledger is None:
+            return False
 
-    in_progress = [
-        step
-        for step in ledger.steps
-        if step.status == "IN_PROGRESS"
-    ]
+        in_progress = [
+            step
+            for step in ledger.steps
+            if step.status == "IN_PROGRESS"
+        ]
 
-    if len(in_progress) > 1:
-        raise RuntimeError(
-            "Canonical ledger contains multiple IN_PROGRESS steps."
+        if len(in_progress) > 1:
+            raise RuntimeError(
+                "Canonical ledger contains multiple IN_PROGRESS steps."
+            )
+
+        if in_progress:
+            active = in_progress[0]
+        else:
+            active = next(
+                (
+                    step
+                    for step in ledger.steps
+                    if step.status == "PLANNED"
+                ),
+                None,
+            )
+
+        if active is None:
+            return False
+
+        if patch_id in active.patch_ids:
+            return False
+
+        updated_steps = tuple(
+            replace(
+                step,
+                status=(
+                    "IN_PROGRESS"
+                    if step.step_id == active.step_id
+                    else step.status
+                ),
+                patch_ids=(
+                    step.patch_ids + (patch_id,)
+                    if step.step_id == active.step_id
+                    else step.patch_ids
+                ),
+            )
+            for step in ledger.steps
         )
 
-    if in_progress:
-        active = in_progress[0]
-    else:
-        active = next(
-            (
-                step
-                for step in ledger.steps
-                if step.status == "PLANNED"
-            ),
-            None,
+        save_milestone_execution_ledger(
+            replace(
+                ledger,
+                steps=updated_steps,
+            )
         )
 
-    if active is None:
-        return False
-
-    if patch_id in active.patch_ids:
-        return False
-
-    updated_steps = tuple(
-        replace(
-            step,
-            status=(
-                "IN_PROGRESS"
-                if step.step_id == active.step_id
-                else step.status
-            ),
-            patch_ids=(
-                step.patch_ids + (patch_id,)
-                if step.step_id == active.step_id
-                else step.patch_ids
-            ),
-        )
-        for step in ledger.steps
-    )
-
-    save_milestone_execution_ledger(
-        replace(
-            ledger,
-            steps=updated_steps,
-        )
-    )
-
-    return True
-
+        return True
 
 def _patch_is_committed_and_verified(
     *,
@@ -171,223 +172,224 @@ def _patch_is_committed_and_verified(
 def reconcile_completed_execution_step(
     workspace_name: str,
 ) -> PostCompletionReconciliation:
-    ledger = load_milestone_execution_ledger()
+    with milestone_ledger_lock(PROJECT_ROOT / "context"):
+        ledger = load_milestone_execution_ledger()
 
-    if ledger is None:
-        return PostCompletionReconciliation(
-            changed=False,
-            completed_step_id=None,
-            next_step_id=None,
-            milestone_completed=False,
-            reason="Canonical execution ledger is absent.",
-        )
-
-    in_progress = [
-        step
-        for step in ledger.steps
-        if step.status == "IN_PROGRESS"
-    ]
-
-    if len(in_progress) != 1:
-        return PostCompletionReconciliation(
-            changed=False,
-            completed_step_id=None,
-            next_step_id=None,
-            milestone_completed=False,
-            reason="Exactly one IN_PROGRESS ledger step is required.",
-        )
-
-    current = in_progress[0]
-
-    if not current.patch_ids:
-        return PostCompletionReconciliation(
-            changed=False,
-            completed_step_id=None,
-            next_step_id=None,
-            milestone_completed=False,
-            reason="Active ledger step has no recorded patches.",
-        )
-
-    git_status = inspect_git_workspace_status(
-        workspace_name
-    )
-
-    dirty_paths = frozenset(
-        path.replace("\\", "/")
-        for path in (
-            tuple(git_status.tracked_modified)
-            + tuple(git_status.untracked)
-            + tuple(git_status.staged)
-            + tuple(git_status.conflicted)
-        )
-    )
-
-    for patch_id in current.patch_ids:
-        if not _patch_is_committed_and_verified(
-            workspace_name=workspace_name,
-            patch_id=patch_id,
-            dirty_paths=dirty_paths,
-        ):
+        if ledger is None:
             return PostCompletionReconciliation(
                 changed=False,
                 completed_step_id=None,
                 next_step_id=None,
                 milestone_completed=False,
-                reason=(
-                    "Active step does not yet have fully applied, "
-                    "verified, clean Git checkpoint evidence."
-                ),
+                reason="Canonical execution ledger is absent.",
             )
 
-    next_step = next(
-        (
+        in_progress = [
             step
             for step in ledger.steps
-            if step.status == "PLANNED"
-        ),
-        None,
-    )
+            if step.status == "IN_PROGRESS"
+        ]
 
-    updated_steps = tuple(
-        replace(
-            step,
-            status=(
-                "COMPLETED"
-                if step.step_id == current.step_id
-                else (
-                    "IN_PROGRESS"
-                    if (
-                        next_step is not None
-                        and step.step_id == next_step.step_id
-                    )
-                    else step.status
-                )
-            ),
-        )
-        for step in ledger.steps
-    )
+        if len(in_progress) != 1:
+            return PostCompletionReconciliation(
+                changed=False,
+                completed_step_id=None,
+                next_step_id=None,
+                milestone_completed=False,
+                reason="Exactly one IN_PROGRESS ledger step is required.",
+            )
 
-    updated_ledger = replace(
-        ledger,
-        steps=updated_steps,
-    )
+        current = in_progress[0]
 
-    save_milestone_execution_ledger(
-        updated_ledger
-    )
+        if not current.patch_ids:
+            return PostCompletionReconciliation(
+                changed=False,
+                completed_step_id=None,
+                next_step_id=None,
+                milestone_completed=False,
+                reason="Active ledger step has no recorded patches.",
+            )
 
-    milestone_completed = all(
-        step.status in {
-            "COMPLETED",
-            "SUPERSEDED",
-        }
-        for step in updated_ledger.steps
-    )
-
-    if milestone_completed:
-        roadmap = load_project_roadmap(
+        git_status = inspect_git_workspace_status(
             workspace_name
         )
 
-        matching = [
-            node
-            for node in roadmap.nodes
-            if node.node_id == ledger.milestone_id
-        ]
-
-        if len(matching) != 1:
-            raise RuntimeError(
-                "Canonical roadmap milestone does not resolve uniquely."
+        dirty_paths = frozenset(
+            path.replace("\\", "/")
+            for path in (
+                tuple(git_status.tracked_modified)
+                + tuple(git_status.untracked)
+                + tuple(git_status.staged)
+                + tuple(git_status.conflicted)
             )
-
-        completed_at = datetime.now(
-            timezone.utc
-        ).isoformat()
-
-        final_patch_id = current.patch_ids[-1]
-
-        current_index = next(
-            index
-            for index, node in enumerate(roadmap.nodes)
-            if node.node_id == ledger.milestone_id
         )
 
-        next_milestone = next(
+        for patch_id in current.patch_ids:
+            if not _patch_is_committed_and_verified(
+                workspace_name=workspace_name,
+                patch_id=patch_id,
+                dirty_paths=dirty_paths,
+            ):
+                return PostCompletionReconciliation(
+                    changed=False,
+                    completed_step_id=None,
+                    next_step_id=None,
+                    milestone_completed=False,
+                    reason=(
+                        "Active step does not yet have fully applied, "
+                        "verified, clean Git checkpoint evidence."
+                    ),
+                )
+
+        next_step = next(
             (
-                node
-                for node in roadmap.nodes[current_index + 1 :]
-                if node.kind == "MILESTONE"
+                step
+                for step in ledger.steps
+                if step.status == "PLANNED"
             ),
             None,
         )
 
-        activate_next_milestone_id = None
-
-        if (
-            next_milestone is not None
-            and next_milestone.status == "NOT_STARTED"
-            and next_milestone.verification_status == "PENDING"
-            and next_milestone.patch_id is None
-            and next_milestone.completed_at is None
-        ):
-            dependencies_ready = all(
-                any(
-                    dependency.node_id == dependency_id
-                    and dependency.kind == "MILESTONE"
-                    and dependency.status == "COMPLETED"
-                    and dependency.verification_status == "PASSED"
-                    for dependency in roadmap.nodes
-                )
-                for dependency_id in next_milestone.dependencies
-            )
-
-            if dependencies_ready:
-                activate_next_milestone_id = (
-                    next_milestone.node_id
-                )
-
-        updated_nodes = tuple(
+        updated_steps = tuple(
             replace(
-                node,
-                status="COMPLETED",
-                verification_status="PASSED",
-                patch_id=final_patch_id,
-                completed_at=completed_at,
+                step,
+                status=(
+                    "COMPLETED"
+                    if step.step_id == current.step_id
+                    else (
+                        "IN_PROGRESS"
+                        if (
+                            next_step is not None
+                            and step.step_id == next_step.step_id
+                        )
+                        else step.status
+                    )
+                ),
             )
-            if node.node_id == ledger.milestone_id
-            else (
+            for step in ledger.steps
+        )
+
+        updated_ledger = replace(
+            ledger,
+            steps=updated_steps,
+        )
+
+        save_milestone_execution_ledger(
+            updated_ledger
+        )
+
+        milestone_completed = all(
+            step.status in {
+                "COMPLETED",
+                "SUPERSEDED",
+            }
+            for step in updated_ledger.steps
+        )
+
+        if milestone_completed:
+            roadmap = load_project_roadmap(
+                workspace_name
+            )
+
+            matching = [
+                node
+                for node in roadmap.nodes
+                if node.node_id == ledger.milestone_id
+            ]
+
+            if len(matching) != 1:
+                raise RuntimeError(
+                    "Canonical roadmap milestone does not resolve uniquely."
+                )
+
+            completed_at = datetime.now(
+                timezone.utc
+            ).isoformat()
+
+            final_patch_id = current.patch_ids[-1]
+
+            current_index = next(
+                index
+                for index, node in enumerate(roadmap.nodes)
+                if node.node_id == ledger.milestone_id
+            )
+
+            next_milestone = next(
+                (
+                    node
+                    for node in roadmap.nodes[current_index + 1 :]
+                    if node.kind == "MILESTONE"
+                ),
+                None,
+            )
+
+            activate_next_milestone_id = None
+
+            if (
+                next_milestone is not None
+                and next_milestone.status == "NOT_STARTED"
+                and next_milestone.verification_status == "PENDING"
+                and next_milestone.patch_id is None
+                and next_milestone.completed_at is None
+            ):
+                dependencies_ready = all(
+                    any(
+                        dependency.node_id == dependency_id
+                        and dependency.kind == "MILESTONE"
+                        and dependency.status == "COMPLETED"
+                        and dependency.verification_status == "PASSED"
+                        for dependency in roadmap.nodes
+                    )
+                    for dependency_id in next_milestone.dependencies
+                )
+
+                if dependencies_ready:
+                    activate_next_milestone_id = (
+                        next_milestone.node_id
+                    )
+
+            updated_nodes = tuple(
                 replace(
                     node,
-                    status="IN_PROGRESS",
+                    status="COMPLETED",
+                    verification_status="PASSED",
+                    patch_id=final_patch_id,
+                    completed_at=completed_at,
                 )
-                if (
-                    activate_next_milestone_id is not None
-                    and node.node_id
-                    == activate_next_milestone_id
+                if node.node_id == ledger.milestone_id
+                else (
+                    replace(
+                        node,
+                        status="IN_PROGRESS",
+                    )
+                    if (
+                        activate_next_milestone_id is not None
+                        and node.node_id
+                        == activate_next_milestone_id
+                    )
+                    else node
                 )
-                else node
+                for node in roadmap.nodes
             )
-            for node in roadmap.nodes
-        )
 
-        save_project_roadmap(
-            replace(
-                roadmap,
-                nodes=updated_nodes,
+            save_project_roadmap(
+                replace(
+                    roadmap,
+                    nodes=updated_nodes,
+                )
             )
-        )
 
-    return PostCompletionReconciliation(
-        changed=True,
-        completed_step_id=current.step_id,
-        next_step_id=(
-            next_step.step_id
-            if next_step is not None
-            else None
-        ),
-        milestone_completed=milestone_completed,
-        reason=(
-            "Verified committed patch evidence reconciled "
-            "canonical execution state."
-        ),
-    )
+        return PostCompletionReconciliation(
+            changed=True,
+            completed_step_id=current.step_id,
+            next_step_id=(
+                next_step.step_id
+                if next_step is not None
+                else None
+            ),
+            milestone_completed=milestone_completed,
+            reason=(
+                "Verified committed patch evidence reconciled "
+                "canonical execution state."
+            ),
+        )
