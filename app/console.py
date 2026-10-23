@@ -509,6 +509,58 @@ def render_milestone_control_center() -> None:
         f"**Verification status:** {milestone.verification_status}"
     )
 
+    # SEC-001 / S6: Read-only canonical execution task display.
+    # Never modify ledger status or infer production approval.
+    st.markdown("**Execution tasks (canonical ledger)**")
+
+    try:
+        from app.milestone_execution_ledger import (
+            load_milestone_execution_ledger,
+        )
+
+        execution_ledger = load_milestone_execution_ledger()
+    except Exception as exc:
+        st.warning(
+            "Execution ledger could not be loaded: "
+            f"{type(exc).__name__}: {exc}"
+        )
+        execution_ledger = None
+
+    if execution_ledger is None:
+        st.info("Canonical execution tasks are unavailable.")
+    elif (
+        execution_ledger.milestone_id != milestone.node_id
+        or execution_ledger.workspace_name != "world-os-research-engine"
+    ):
+        st.warning(
+            "Execution ledger does not match the active "
+            "Research Engine milestone. Task statuses are not inferred."
+        )
+    else:
+        execution_steps = tuple(execution_ledger.steps)
+        completed_steps = sum(
+            step.status == "COMPLETED"
+            for step in execution_steps
+        )
+
+        st.write(
+            f"Completed execution tasks: "
+            f"{completed_steps}/{len(execution_steps)}"
+        )
+
+        if execution_steps:
+            st.progress(completed_steps / len(execution_steps))
+
+        for step in execution_steps:
+            st.write(
+                f"**{step.step_id}** | "
+                f"{step.status} | {step.title}"
+            )
+
+        st.caption(
+            "Read-only canonical execution ledger. "
+            "Task completion does not imply production authorization."
+        )
     relevant = [
         (path, record)
         for path, record in load_patch_records()

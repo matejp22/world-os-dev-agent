@@ -1,0 +1,83 @@
+{
+    "schema_version":  "1.0",
+    "date":  "2026-10-23",
+    "status":  "CONSOLE_DISPLAY_VERIFIED",
+    "projects":  [
+                     {
+                         "project_id":  "world-os-research-engine",
+                         "milestone_id":  "milestone-canonical-asset-population-web-map",
+                         "milestone_status":  "IN_PROGRESS",
+                         "current_focus":  "S6 LOCAL_VERIFIED - six production conditions pending",
+                         "verified":  [
+                                          "S1-S5 local and synthetic implementation completed",
+                                          "Internal preview security chain: 153/153 tests PASS",
+                                          "Isolated PostgreSQL security verification: 18/18 PASS",
+                                          "Bounded synthetic preview: maximum 100 assets",
+                                          "Research Engine to World OS Web synthetic contract verified",
+                                          "S6 local phase LOCAL_VERIFIED - 14 evidence items",
+                                          "Synthetic migration 00800 and post-COMMIT recovery verified",
+                                          "Local authorized Research Engine to Web HTTP/HMAC chain verified"
+                                      ],
+                         "pending":  [
+                                         "S6 production readiness and milestone closure",
+                                         "production_migration_00800_approval",
+                                         "positive_authorized_production_http_test",
+                                         "production_auth_session_and_permission_verification",
+                                         "trusted_geographic_asset_source",
+                                         "authenticated_research_engine_web_integration",
+                                         "explicit_real_data_access_approval"
+                                     ],
+                         "local_phase_status":  "LOCAL_VERIFIED",
+                         "production_blocker_count":  6
+                     },
+                     {
+                         "project_id":  "world-os-web",
+                         "milestone_id":  "milestone-asset-spatial-explorer",
+                         "milestone_status":  "IN_PROGRESS",
+                         "current_focus":  "Internal Canonical Asset Map Preview",
+                         "verified":  [
+                                          "Local Next.js and MapLibre implementation",
+                                          "Synthetic asset map preview",
+                                          "Public publication endpoints fail closed",
+                                          "Synthetic Research Engine to Web adapter contract verified",
+                                          "Negative adapter security tests: 13/13 PASS",
+                                          "GlobalMap synthetic integration checks: 8/8 PASS",
+                                          "Local TypeScript validation PASS"
+                                      ],
+                         "pending":  [
+                                         "Authenticated internal preview API",
+                                         "Authorized canonical asset data binding",
+                                         "Internal map integration tests",
+                                         "Production security verification",
+                                         "Production integration blocked pending SEC-001"
+                                     ]
+                     },
+                     {
+                         "project_id":  "world-os-dev-agent",
+                         "milestone_id":  "group-canonical-roadmap-population",
+                         "milestone_status":  "IN_PROGRESS",
+                         "current_focus":  "Canonical roadmap and Console alignment",
+                         "verified":  [
+                                          "Master roadmap exists",
+                                          "Three project roadmaps available",
+                                          "Console roadmap rendering implementation exists",
+                                          "Execution ledger aligned: S1-S5 COMPLETED, S6 IN_PROGRESS",
+                                          "Canonical Research Engine milestone remains IN_PROGRESS"
+                                      ],
+                         "pending":  [
+                                         "Persistent orchestration integration",
+                                         "Verified roadmap synchronization",
+                                         "Verify updated Console development status rendering"
+                                     ]
+                     }
+                 ],
+    "execution_ledger":  {
+                             "current_milestone_id":  "milestone-canonical-asset-population-web-map",
+                             "current_workspace":  "world-os-research-engine",
+                             "action":  "ROLLOVER_COMPLETED_ARCHIVE_PRESERVED"
+                         },
+    "production_access":  "BLOCKED",
+    "sec001_status":  "OPEN",
+    "console_display_status":  "VERIFIED_8_OF_8",
+    "canonical_milestone_sync":  "EXECUTION_LEDGER_ALIGNED"
+}

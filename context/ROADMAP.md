@@ -214,15 +214,40 @@ Current Research Engine milestone:
 
 **Canonical Asset Population & World OS Web Map Integration**
 
-Next bounded objective:
+Milestone status: **IN_PROGRESS**.
+S1-S5: **COMPLETED**.
+S6 local phase: LOCAL_VERIFIED.
+S6 production phase: BLOCKED / NO-GO.
+SEC-001: OPEN.
 
-Prepare the canonical asset population set produced during trusted
-multi-domain Research Engine development, inspect the existing Supabase
-schema and World OS Web read path, produce an exact database write preview,
-obtain explicit human approval, insert only the approved canonical records,
-and verify that the resulting assets are visible through world-os-web and
-its map.
+Verified local work:
+- Fourteen local evidence items retained.
+- Synthetic migration 00800, rollback and post-COMMIT recovery verified.
+- Local authorized Research Engine-Web HTTP/HMAC integration verified.
+- Five local OSM preview geometries implemented.
+- Canonical production access remains disabled.
 
+Six pending production conditions:
+1. production_migration_00800_approval
+2. positive_authorized_production_http_test
+3. production_auth_session_and_permission_verification
+4. trusted_geographic_asset_source
+5. authenticated_research_engine_web_integration
+6. explicit_real_data_access_approval
+
+Geographic source candidates:
+- DE-HAM: Hafen Hamburg terminal map and HPA port boundary.
+- ANR-ZEE: Port of Antwerp-Bruges nautical map and Digitaal Vlaanderen GRB.
+- Candidate selection does not verify coordinates, licensing or canonical identity.
+- Canonical geographic publication remains disabled.
+
+Next bounded objectives:
+1. Align canonical Research Engine milestone and task evidence with Console.
+2. Preserve production NO-GO until separately approved security and data gates pass.
+3. Continue Research Engine orchestration, persistence, recovery and Dev Agent
+   integration according to the canonical Master Roadmap.
+4. Require an exact database write preview and explicit human approval before
+   any canonical record insertion or real-data activation.
 Safety boundaries remain unchanged:
 
 - database and Supabase writes require explicit preview and human approval,

@@ -246,6 +246,76 @@ def render_terminal_roadmap(
     lines.append("Legend: OK=achieved  ..=in progress  --=not started  >>=current")
     lines.append("=" * 78)
 
+    # Optional, informational development status.
+    # Canonical milestone states and progress remain unchanged.
+    try:
+        import json
+
+        alignment_path = (
+            Path(__file__).resolve().parent.parent
+            / "context"
+            / "WORLD_OS_ROADMAP_ALIGNMENT_20261016.json"
+        )
+
+        if alignment_path.is_file():
+            alignment = json.loads(
+                alignment_path.read_text(encoding="utf-8")
+            )
+
+            projects = alignment.get("projects", [])
+
+            expected_ids = {
+                "world-os-research-engine",
+                "world-os-web",
+                "world-os-dev-agent",
+            }
+
+            if (
+                isinstance(projects, list)
+                and len(projects) == 3
+                and all(
+                    isinstance(project, dict)
+                    and isinstance(project.get("project_id"), str)
+                    and isinstance(project.get("current_focus"), str)
+                    for project in projects
+                )
+                and {project["project_id"] for project in projects}
+                == expected_ids
+            ):
+                lines.append("")
+                lines.append("=" * 78)
+                lines.append("CURRENT DEVELOPMENT STATUS")
+                lines.append("=" * 78)
+
+                for project in projects:
+                    lines.append("")
+                    lines.append(
+                        f">> {project['project_id']}"
+                    )
+                    lines.append(
+                        f"   Focus: {project['current_focus']}"
+                    )
+                    lines.append(
+                        f"   Status: {project.get('milestone_status', 'UNKNOWN')}"
+                    )
+
+                    for item in project.get("verified", []):
+                        lines.append(f"   [OK] {item}")
+
+                    for item in project.get("pending", []):
+                        lines.append(f"   [..] {item}")
+
+                lines.append("")
+                lines.append(
+                    f"SEC-001: {alignment.get('sec001_status', 'UNKNOWN')}"
+                )
+                lines.append(
+                    "Real canonical data access: "
+                    f"{alignment.get('production_access', 'UNKNOWN')}"
+                )
+    except (OSError, ValueError, TypeError, AttributeError):
+        # Optional display must not break the canonical roadmap.
+        pass
     return "\n".join(lines)
 
 
