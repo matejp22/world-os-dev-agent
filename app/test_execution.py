@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -11,6 +12,7 @@ from app.test_registry import (
     RepositoryTestRegistry,
     TestRegistryEntry,
 )
+from app.workspace_registry import get_workspace_profile
 
 
 EXECUTION_WORKSPACES = frozenset(
@@ -66,6 +68,33 @@ def _validate_registry(
         raise RuntimeError(
             "Test registry must be inspected before execution."
         )
+
+    if registry.workspace_name == "world-os-web":
+        profile = get_workspace_profile("world-os-web")
+        expected_path = profile.path.resolve()
+        actual_path = Path(registry.workspace_path).resolve()
+
+        if (
+            profile.access_mode != "READ_ONLY"
+            or actual_path != expected_path
+            or len(registry.tests) != 1
+        ):
+            raise RuntimeError(
+                "Web test registry policy mismatch."
+            )
+
+        entry = registry.tests[0]
+        if (
+            entry.test_id != "web_osm_preview_contract"
+            or entry.style != "NODE_SCRIPT"
+            or entry.path != "scripts/osm_geometry_preview_contract_test.mjs"
+            or entry.execution_validated is not False
+        ):
+            raise RuntimeError(
+                "Web test registry entry is not explicitly allowed."
+            )
+
+        return
 
     if registry.workspace_name not in EXECUTION_WORKSPACES:
         raise RuntimeError(
@@ -132,6 +161,7 @@ def _validate_requested_test_ids(
             "PYTEST_FUNCTIONS",
             "SCRIPT_MAIN",
             "SCRIPT_TOP_LEVEL",
+            "NODE_SCRIPT",
         }:
             raise RuntimeError(
                 f"Unsupported registered test style: {entry.style}"
@@ -150,6 +180,60 @@ def _build_test_command(
     entry: TestRegistryEntry,
     workspace: Path,
 ) -> tuple[str, ...]:
+    if entry.style == "NODE_SCRIPT":
+        profile = get_workspace_profile("world-os-web")
+        relative = "scripts/osm_geometry_preview_contract_test.mjs"
+
+        if (
+            workspace.resolve() != profile.path.resolve()
+            or profile.access_mode != "READ_ONLY"
+            or entry.test_id != "web_osm_preview_contract"
+            or entry.path != relative
+            or entry.execution_validated is not False
+        ):
+            raise RuntimeError(
+                "Unapproved Node test execution request."
+            )
+
+        script = workspace / relative
+        package_file = workspace / "package.json"
+        research = get_workspace_profile(
+            "world-os-research-engine"
+        ).path
+        dataset = (
+            research
+            / "context/osm_preview/multi_asset_geographic_review.geojson"
+        )
+        node = Path(r"C:\Program Files\nodejs\node.exe")
+
+        for required in (script, package_file, dataset, node):
+            if (
+                not required.is_file()
+                or required.is_symlink()
+            ):
+                raise RuntimeError(
+                    "Required Node test file is missing or redirected."
+                )
+
+        package = json.loads(
+            package_file.read_text(encoding="utf-8")
+        )
+
+        if package.get("scripts", {}).get(
+            "test:osm-preview-contract"
+        ) != "node scripts/osm_geometry_preview_contract_test.mjs":
+            raise RuntimeError(
+                "Approved npm script declaration changed."
+            )
+
+        return (
+            str(node),
+            "--permission",
+            f"--allow-fs-read={workspace}",
+            f"--allow-fs-read={dataset}",
+            str(script),
+        )
+
     target = (
         workspace
         / entry.path
@@ -515,6 +599,12 @@ def execute_registered_tests(
                 workspace,
             )
 
+            execution_env = env
+            if entry.style == "NODE_SCRIPT":
+                execution_env = dict(env)
+                execution_env["NODE_OPTIONS"] = ""
+                execution_env.pop("NODE_PATH", None)
+
             try:
                 completed = subprocess.run(
                     command,
@@ -523,7 +613,7 @@ def execute_registered_tests(
                     text=True,
                     encoding="utf-8",
                     errors="replace",
-                    env=env,
+                    env=execution_env,
                     timeout=timeout_seconds,
                     shell=False,
                 )

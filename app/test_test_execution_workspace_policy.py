@@ -290,10 +290,12 @@ def test_research_engine_registry_is_allowed(tmp_path: Path) -> None:
     )
 
 
-def test_web_registry_remains_blocked(tmp_path: Path) -> None:
+def test_web_unapproved_registry_remains_blocked(tmp_path: Path) -> None:
+    # A forged Web registry cannot inherit the one explicit Node test
+    # exception. The real registered OSM test is verified separately.
     with pytest.raises(
         RuntimeError,
-        match="approved execution workspaces",
+        match="Web test registry policy mismatch",
     ):
         module._validate_registry(
             _registry(

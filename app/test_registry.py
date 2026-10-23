@@ -13,6 +13,7 @@ TestStyle = Literal[
     "PYTEST_FUNCTIONS",
     "SCRIPT_MAIN",
     "SCRIPT_TOP_LEVEL",
+    "NODE_SCRIPT",
 ]
 
 
@@ -238,6 +239,61 @@ def inspect_repository_test_registry(
         workspace_name
     )
 
+    if workspace.name == "world-os-web":
+        # Explicit read-only metadata registration. Execution is not
+        # enabled here and requires a separate restricted executor.
+        import json
+
+        if workspace.access_mode != "READ_ONLY":
+            raise RuntimeError(
+                "Web OSM test requires READ_ONLY workspace policy."
+            )
+
+        relative_path = "scripts/osm_geometry_preview_contract_test.mjs"
+        test_path = workspace.path / relative_path
+        package_path = workspace.path / "package.json"
+
+        if not test_path.is_file() or not package_path.is_file():
+            raise RuntimeError(
+                "Explicit Web OSM test prerequisites are missing."
+            )
+
+        package = json.loads(package_path.read_text(encoding="utf-8"))
+        scripts = package.get("scripts")
+
+        if (
+            not isinstance(scripts, dict)
+            or scripts.get("test:osm-preview-contract")
+            != "node scripts/osm_geometry_preview_contract_test.mjs"
+        ):
+            raise RuntimeError(
+                "Web OSM npm script contract mismatch."
+            )
+
+        return RepositoryTestRegistry(
+            workspace_name=workspace.name,
+            workspace_path=str(workspace.path),
+            tests=(
+                TestRegistryEntry(
+                    test_id="web_osm_preview_contract",
+                    path=relative_path,
+                    module="scripts.osm_geometry_preview_contract_test",
+                    style="NODE_SCRIPT",
+                    test_functions=(),
+                    imported_app_modules=(),
+                    declared_focused_modules=(),
+                    has_main_guard=False,
+                    compile_target=relative_path,
+                    execution_validated=False,
+                ),
+            ),
+            inspected=True,
+            reason=(
+                "Explicit read-only registration of the Web OSM "
+                "preview contract test. Execution remains disabled."
+            ),
+        )
+
     app_dir = workspace.path / "app"
     tests_dir = workspace.path / "tests"
 
@@ -404,6 +460,45 @@ def plan_test_selection(
     if not changed_files:
         raise RuntimeError(
             "changed_files must not be empty."
+        )
+
+    # Web OSM focused selection: metadata only, no execution.
+    if registry.workspace_name == "world-os-web":
+        web_test_id = "web_osm_preview_contract"
+        web_target = "src/app/api/internal-preview/osm-geometry/route.ts"
+        web_entry = tuple(
+            entry for entry in registry.tests
+            if entry.test_id == web_test_id
+        )
+
+        if (
+            len(registry.tests) != 1
+            or len(web_entry) != 1
+            or web_entry[0].style != "NODE_SCRIPT"
+            or web_entry[0].path
+            != "scripts/osm_geometry_preview_contract_test.mjs"
+            or web_entry[0].execution_validated is not False
+        ):
+            raise RuntimeError(
+                "Web OSM focused selection registry mismatch."
+            )
+
+        matched = any(
+            isinstance(changed_path, str)
+            and changed_path.replace("\\", "/") == web_target
+            for changed_path in changed_files
+        )
+
+        return TestSelectionPlan(
+            changed_modules=(),
+            focused_test_ids=(web_test_id,) if matched else (),
+            regression_test_ids=() if matched else (web_test_id,),
+            executable=False,
+            reason=(
+                "Web OSM focused selection is deterministic and "
+                "non-executing. Only the explicitly registered API "
+                "target receives focused test selection."
+            ),
         )
 
     changed_modules = {
