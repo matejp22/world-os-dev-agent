@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
+import os
 import re
 import subprocess
 import sys
@@ -27,8 +30,15 @@ from app.dev_task_state import (
 )
 from app.git_workspace_status import inspect_git_workspace_status
 from app.milestone_execution_ledger import (
+    MilestoneExecutionLedger,
     load_milestone_execution_ledger,
 )
+from app.milestone_seam_planner import plan_milestone_seams
+from app.roadmap_store import load_project_roadmap
+from app.milestone_execution_ledger import save_milestone_execution_ledger
+from app.milestone_ledger_archive import archive_execution_ledger
+from app.milestone_ledger_lock import milestone_ledger_lock
+from app.milestone_execution_ledger import validate_milestone_execution_ledger
 from app.output_sanitizer import sanitize_output
 from app.post_completion_reconciler import (
     reconcile_completed_execution_step,
@@ -57,6 +67,96 @@ def _run_data_file_recovery_preflight():
     return run_data_file_recovery_cycle(
         queue_dir=PROJECT_ROOT / "pending_patches",
     )
+
+
+def _can_rollover_execution_ledger(
+    *,
+    workspace_name: str,
+    active_milestone: str,
+    ledger: MilestoneExecutionLedger,
+) -> bool:
+    if workspace_name != "world-os-research-engine":
+        return False
+
+    if not active_milestone.strip():
+        return False
+
+    if (
+        ledger.milestone_title.strip().casefold()
+        == active_milestone.strip().casefold()
+    ):
+        return False
+
+    if not ledger.steps:
+        return False
+
+    return all(
+        step.status == "COMPLETED"
+        for step in ledger.steps
+    )
+
+
+def _resolve_active_roadmap_milestone(
+    *,
+    workspace_name: str,
+    active_milestone: str,
+):
+    """Resolve exactly one active canonical roadmap milestone."""
+    roadmap = load_project_roadmap(workspace_name)
+
+    matches = [
+        node
+        for node in roadmap.nodes
+        if node.kind == "MILESTONE"
+        and node.status == "IN_PROGRESS"
+        and node.title.strip().casefold()
+        == active_milestone.strip().casefold()
+    ]
+
+    if len(matches) != 1:
+        raise RuntimeError(
+            "Expected exactly one active matching roadmap milestone."
+        )
+
+    return matches[0]
+
+def _plan_next_execution_ledger(*, workspace_name: str, active_milestone: str, milestone_objective: str, relevant_context: str) -> MilestoneExecutionLedger:
+    """Plan a new ledger without persisting it."""
+    node = _resolve_active_roadmap_milestone(workspace_name=workspace_name, active_milestone=active_milestone)
+    return plan_milestone_seams(workspace_name=workspace_name, milestone_id=node.node_id, milestone_title=node.title, milestone_objective=milestone_objective, relevant_context=relevant_context)
+
+
+def _prepare_execution_ledger_rollover(
+    *,
+    workspace_name: str,
+    active_milestone: str,
+    ledger: MilestoneExecutionLedger,
+) -> bool:
+    """Validate whether a completed stale ledger may be rolled over."""
+    return _can_rollover_execution_ledger(
+        workspace_name=workspace_name,
+        active_milestone=active_milestone,
+        ledger=ledger,
+    )
+
+def _execute_execution_ledger_rollover(*, workspace_name: str, active_milestone: str, milestone_objective: str, relevant_context: str) -> MilestoneExecutionLedger:
+    """Prepare a rollover only when the previous ledger is complete."""
+    with milestone_ledger_lock(PROJECT_ROOT / "context"):
+        ledger = load_milestone_execution_ledger()
+        if ledger is None or not _prepare_execution_ledger_rollover(workspace_name=workspace_name, active_milestone=active_milestone, ledger=ledger):
+            raise RuntimeError("Execution ledger rollover is not permitted.")
+        ledger_path = PROJECT_ROOT / "context" / "RESEARCH_ENGINE_MILESTONE_EXECUTION_LEDGER.json"
+        original_hash = hashlib.sha256(ledger_path.read_bytes()).hexdigest()
+        next_ledger = _plan_next_execution_ledger(workspace_name=workspace_name, active_milestone=active_milestone, milestone_objective=milestone_objective, relevant_context=relevant_context)
+        validate_milestone_execution_ledger(next_ledger)
+        node = _resolve_active_roadmap_milestone(workspace_name=workspace_name, active_milestone=active_milestone)
+        if next_ledger.workspace_name != workspace_name or next_ledger.milestone_id != node.node_id or next_ledger.milestone_title != node.title:
+            raise RuntimeError("Planned ledger does not match canonical active milestone.")
+        if hashlib.sha256(ledger_path.read_bytes()).hexdigest() != original_hash:
+            raise RuntimeError("Canonical ledger changed during rollover planning.")
+        archive_execution_ledger(PROJECT_ROOT / "context" / "RESEARCH_ENGINE_MILESTONE_EXECUTION_LEDGER.json", PROJECT_ROOT / "context" / "milestone_ledger_archive", ledger.milestone_id)
+        save_milestone_execution_ledger(next_ledger)
+        return next_ledger
 
 
 def _resolve_execution_ledger_objective(
@@ -1076,6 +1176,22 @@ def run_continue_milestone(
         return 1
 
     active_milestone = state.milestone
+
+    if workspace_selection.workspace.name == "world-os-research-engine":
+        try:
+            previous_ledger = load_milestone_execution_ledger()
+            if previous_ledger is not None and previous_ledger.milestone_title.strip().casefold() != active_milestone.strip().casefold():
+                if not _prepare_execution_ledger_rollover(workspace_name=workspace_selection.workspace.name, active_milestone=active_milestone, ledger=previous_ledger):
+                    raise RuntimeError("Previous milestone ledger is not eligible for rollover.")
+                _execute_execution_ledger_rollover(
+                    workspace_name=workspace_selection.workspace.name,
+                    active_milestone=active_milestone,
+                    milestone_objective=state.objective,
+                    relevant_context=developer_instruction,
+                )
+        except Exception as exc:
+            print(f"Execution ledger rollover stopped safely: {exc}")
+            return 1
 
     persistent_objective = (
         _resolve_execution_ledger_objective(

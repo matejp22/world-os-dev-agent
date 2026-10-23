@@ -161,7 +161,34 @@ def run_patch_quality_evidence(
         allow_missing_candidate_target=allow_missing_candidate_target,
     )
 
-    behavioral = _is_behavioral_source(target_file)
+    # Explicit Web OSM evidence exception. This does not authorize
+    # Web patches or candidate-file overlays.
+    web_osm_target = (
+        workspace_name == "world-os-web"
+        and target_file.replace("\\", "/")
+        == "src/app/api/internal-preview/osm-geometry/route.ts"
+    )
+
+    if web_osm_target and not candidate_pair_missing:
+        return _result(
+            workspace_name=workspace_name,
+            target_file=target_file,
+            behavioral_source_change=True,
+            focused_test_ids=(),
+            regression_test_ids=(),
+            focused_tests_executed=False,
+            focused_tests_passed=False,
+            regression_tests_executed=False,
+            regression_tests_passed=False,
+            execution_supported=False,
+            reasons=[
+                "Web OSM candidate-file execution is not permitted."
+            ],
+        )
+
+    behavioral = (
+        web_osm_target or _is_behavioral_source(target_file)
+    )
 
     if not behavioral:
         return _result(
