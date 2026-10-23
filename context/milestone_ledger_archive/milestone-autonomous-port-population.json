@@ -1,0 +1,55 @@
+{
+  "milestone_id": "milestone-autonomous-port-population",
+  "milestone_title": "Autonomous Port Population Production-Ready",
+  "steps": [
+    {
+      "note": "Implement functional extraction and mapping for TrustedTerminalProfile inputs, preserving operator-defined terminal_id values, enforcing parent_area_id and identifier validation, mapping source names to official_name, normalizing status, and binding primary evidence. Add focused tests for valid mappings and rejection of missing, invalid, or conflicting canonical identifiers.",
+      "patch_ids": [],
+      "status": "COMPLETED",
+      "step_id": "S1-implement-terminal-v0-2-trusted-profile-extraction-and-bounded-mapping",
+      "target_files": [
+        "app/research/terminal_extraction_mapper.py",
+        "tests/research/test_terminal_extraction_mapper.py"
+      ],
+      "title": "Implement Terminal V0.2 trusted-profile extraction and bounded mapping"
+    },
+    {
+      "note": "Produce only UntrustedResearchTerminalV2 records with the required terminal_id, parent_area_id, official_name, terminal_type, and status fields; reject extra fields and prevent research output from minting or modifying canonical terminal IDs. Verify primary evidence binding and deterministic normalization with contract tests.",
+      "patch_ids": [],
+      "status": "COMPLETED",
+      "step_id": "S2-enforce-untrustedresearchterminalv2-output-contract-and-evidence-boundaries",
+      "target_files": [
+        "app/research/terminal_extraction_mapper.py",
+        "app/research/models.py",
+        "tests/research/test_terminal_extraction_mapper_contract.py"
+      ],
+      "title": "Enforce UntrustedResearchTerminalV2 output contract and evidence boundaries"
+    },
+    {
+      "note": "Connect the functional mapper to the bounded Research Engine step, preserve existing source-understanding safeguards, and verify end-to-end terminal population behavior including valid records, invalid input handling, evidence requirements, and absence of cosmetic-only changes.",
+      "patch_ids": [],
+      "status": "COMPLETED",
+      "step_id": "S3-integrate-bounded-terminal-v0-2-research-execution-and-verification",
+      "target_files": [
+        "app/research/terminal_extraction_mapper.py",
+        "app/research/engine.py",
+        "tests/research/test_terminal_population_flow.py"
+      ],
+      "title": "Integrate bounded Terminal V0.2 research execution and verification"
+    },
+    {
+      "note": "Run production-readiness verification for the completed Terminal V0.2 slice, confirm all contracts, regression coverage, bounded execution, evidence binding, and canonical-ID protections, document results, and close the milestone only when verification passes. Reject new product scope; no new product scope.",
+      "patch_ids": [],
+      "status": "COMPLETED",
+      "step_id": "S4-verify-autonomous-port-population-production-readiness-and-close-milestone",
+      "target_files": [
+        "tests/research/test_terminal_extraction_mapper.py",
+        "tests/research/test_terminal_extraction_mapper_contract.py",
+        "tests/research/test_terminal_population_flow.py",
+        "docs/milestones/autonomous-port-population-production-ready.md"
+      ],
+      "title": "Verify Autonomous Port Population production readiness and close milestone"
+    }
+  ],
+  "workspace_name": "world-os-research-engine"
+}
