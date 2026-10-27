@@ -765,7 +765,7 @@
       "weight": 0.0
     },
     {
-      "completed_at": null,
+      "completed_at": "2026-10-27T22:31:41+01:00",
       "dependencies": [
         "milestone-autonomous-multidomain-research"
       ],
@@ -773,9 +773,9 @@
       "node_id": "milestone-canonical-asset-population-web-map",
       "parent_id": "group-canonical-asset-population",
       "patch_id": null,
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "title": "Canonical Asset Population & World OS Web Map Integration",
-      "verification_status": "PENDING",
+      "verification_status": "PASSED",
       "weight": 5.0,
       "s6_evidence_sync": {
         "reference": "RESEARCH_ENGINE_S6_389_20261025",
@@ -804,6 +804,54 @@
           "milestone_status": "IN_PROGRESS",
           "final_console_sync": "PENDING"
         }
+      },
+      "s6_technical_scope_acceptance": {
+        "decision_id": "S6-814_TECHNICAL_SCOPE_ACCEPTED_20261027",
+        "decision_date": "2026-10-27",
+        "status": "TECHNICAL_SCOPE_ACCEPTED",
+        "accepted_evidence": [
+          "CTA_CANONICAL_ENTITY_ASSET_PROVENANCE_VERIFIED",
+          "AUTHORIZED_PRODUCTION_CANONICAL_READ_VERIFIED",
+          "BOUNDED_WEB_SUPABASE_READ_VERIFIED",
+          "LOCAL_CTA_METADATA_MAP_DISPLAY_VERIFIED"
+        ],
+        "production_readiness": "NOT_APPROVED",
+        "sec001": "OPEN",
+        "public_http_activation": "DISABLED",
+        "geographic_publication": "NOT_APPROVED",
+        "public_release": "NO_GO",
+        "additional_production_access": "NOT_AUTHORIZED",
+        "existing_s6_acceptance_criteria_waived": false,
+        "formal_milestone_closure": "NOT_AUTHORIZED",
+        "console_synchronization": "PENDING"
+      },
+      "s6_approved_closure_scope": {
+        "decision_id": "S6-815_APPROVED_TECHNICAL_CLOSURE_SCOPE_20261027",
+        "approved_date": "2026-10-27",
+        "decision": "TECHNICAL_MILESTONE_CLOSURE_SCOPE_APPROVED",
+        "technical_acceptance": "VERIFIED_BOUNDED_CAPABILITIES",
+        "public_release_prerequisite_for_technical_closure": false,
+        "production_deployment_prerequisite_for_technical_closure": false,
+        "sec001_release_clearance_prerequisite_for_technical_closure": false,
+        "sec001_status": "OPEN",
+        "public_http": "DISABLED",
+        "geographic_publication": "NOT_APPROVED",
+        "production_release": "NO_GO",
+        "additional_real_data_access": "NOT_AUTHORIZED",
+        "historical_acceptance_records_preserved": true,
+        "formal_closure": "PENDING_SEPARATE_APPROVAL"
+      },
+      "s6_formal_technical_closure": {
+        "closure_id": "S6-818_FORMAL_TECHNICAL_CLOSURE",
+        "completed_at": "2026-10-27T22:31:41+01:00",
+        "scope": "APPROVED_TECHNICAL_SCOPE_ONLY",
+        "technical_verification": "PASSED",
+        "sec001": "OPEN",
+        "public_http": "DISABLED",
+        "geographic_publication": "NOT_APPROVED",
+        "production_release": "NO_GO",
+        "new_production_access": "NOT_AUTHORIZED",
+        "public_release_authorized": false
       }
     }
   ],

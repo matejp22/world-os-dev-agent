@@ -343,3 +343,50 @@ Active milestone: `milestone-canonical-asset-population-web-map`.
 - Milestone closure and final Dev Agent Console synchronization remain pending.
 - Existing release-gate documents retain their historical evidence; newer verified results supersede outdated PENDING descriptions only within their proven scope.
 - No automatic Git, database, deployment or public publication actions are authorized by this roadmap update.
+
+## S6-815_APPROVED_TECHNICAL_CLOSURE_SCOPE_20261027
+
+Approved governance decision: Research Engine S6 technical completion
+can be assessed independently of public Web map publication,
+production deployment and final SEC-001 public release clearance.
+
+Accepted bounded evidence includes canonical CTA population,
+official provenance, authorized canonical READ, bounded protected
+Web integration and local CTA metadata map presentation.
+
+This decision prospectively revises the technical closure scope.
+Historical acceptance and release-gate records remain preserved.
+
+SEC-001 remains OPEN. Public HTTP remains DISABLED.
+Geographic publication remains NOT APPROVED.
+Production release remains NO-GO.
+
+No deployment, additional production access, milestone status change
+or formal milestone closure is authorized by this decision.
+
+## S6-818_FORMAL_TECHNICAL_CLOSURE
+
+Completed at: 2026-10-27T22:31:41+01:00
+
+Research Engine milestone:
+Canonical Asset Population & World OS Web Map Integration.
+
+Decision: COMPLETED / PASSED in the explicitly approved
+technical scope defined by S6-815_APPROVED_TECHNICAL_CLOSURE_SCOPE_20261027.
+
+Verified technical evidence:
+- Canonical CTA entity, physical asset and provenance.
+- Authorized canonical production READ.
+- Bounded protected Web-to-Supabase integration.
+- Local CTA metadata presentation on World OS Web.
+
+This closure does not authorize public publication,
+production deployment or additional real-data access.
+
+SEC-001: OPEN.
+Public HTTP: DISABLED.
+Geographic publication: NOT APPROVED.
+Production release: NO-GO.
+
+The next development phase remains subject to the
+existing canonical Master Roadmap and separate approval.
