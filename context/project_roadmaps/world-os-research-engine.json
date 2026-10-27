@@ -776,7 +776,35 @@
       "status": "IN_PROGRESS",
       "title": "Canonical Asset Population & World OS Web Map Integration",
       "verification_status": "PENDING",
-      "weight": 5.0
+      "weight": 5.0,
+      "s6_evidence_sync": {
+        "reference": "RESEARCH_ENGINE_S6_389_20261025",
+        "local_phase": "LOCAL_VERIFIED",
+        "production_function_00800": "TECHNICALLY_VERIFIED",
+        "production_release": "NO_GO",
+        "sec001": "OPEN",
+        "milestone_status": "IN_PROGRESS",
+        "remaining_work": "PRODUCTION_APPROVAL_AND_VERIFICATION_GATES",
+        "production_evidence_20261027": {
+          "technical_status": "PARTIALLY_VERIFIED",
+          "production_authentication": "VERIFIED",
+          "production_active_session": "VERIFIED",
+          "production_canonical_read": "VERIFIED",
+          "bounded_web_supabase_read": "VERIFIED",
+          "cta_source_registration": "COMPLETED",
+          "cta_sources_created": 2,
+          "cta_canonical_promotion": "COMPLETED_INSERTED",
+          "cta_entity_id": "WOS-ENTITY-AE8025A10747F1D0",
+          "cta_entity_asset_provenance": "PRODUCTION_READ_VERIFIED",
+          "cta_promotion_execution_id": "2c602fab-f59e-4fee-9267-df0d25f0aa2e",
+          "public_web_map_release": "NO_GO",
+          "public_http_activation": "DISABLED",
+          "public_release_required_for_technical_completion": false,
+          "sec001": "OPEN",
+          "milestone_status": "IN_PROGRESS",
+          "final_console_sync": "PENDING"
+        }
+      }
     }
   ],
   "project_id": "world-os-research-engine",

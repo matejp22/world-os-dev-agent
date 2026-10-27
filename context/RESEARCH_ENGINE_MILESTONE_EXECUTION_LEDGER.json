@@ -1,85 +1,73 @@
 {
-    "milestone_id":  "milestone-canonical-asset-population-web-map",
-    "milestone_title":  "Canonical Asset Population \u0026 World OS Web Map Integration",
-    "steps":  [
-                  {
-                      "note":  "Complete synthetic registry tests; no production access. | Local/synthetic implementation verified. SEC-001 OPEN; production readiness not established.",
-                      "patch_ids":  [
-
-                                    ],
-                      "status":  "COMPLETED",
-                      "step_id":  "S1-verify-synthetic-operator-permission-registry",
-                      "target_files":  [
-                                           "app/research/internal_preview/synthetic_permission_registry.py",
-                                           "tests/test_internal_preview_synthetic_permission_registry.py"
-                                       ],
-                      "title":  "Verify Synthetic Operator Permission Registry"
-                  },
-                  {
-                      "note":  "Enforce trusted permission provenance, session validity and revocation. | Local/synthetic implementation verified. SEC-001 OPEN; production readiness not established.",
-                      "patch_ids":  [
-
-                                    ],
-                      "status":  "COMPLETED",
-                      "step_id":  "S2-harden-trusted-operator-authorization-and-sessions",
-                      "target_files":  [
-                                           "app/research/internal_preview/operator_authorization.py",
-                                           "app/research/internal_preview/trusted_operator_authorization.py"
-                                       ],
-                      "title":  "Harden Trusted Operator Authorization and Sessions"
-                  },
-                  {
-                      "note":  "Preserve 18 passing synthetic tests; production access remains blocked. | Local/synthetic implementation verified. SEC-001 OPEN; production readiness not established.",
-                      "patch_ids":  [
-
-                                    ],
-                      "status":  "COMPLETED",
-                      "step_id":  "S3-verify-sec001-database-security-boundaries",
-                      "target_files":  [
-                                           "context/INTERNAL_CANONICAL_ASSET_PREVIEW_SEC001_COMBINED_TEST_V01.sql",
-                                           "context/INTERNAL_CANONICAL_ASSET_PREVIEW_SEC001_TEST_RESULTS_V01.md"
-                                       ],
-                      "title":  "Verify SEC001 Database Security Boundaries"
-                  },
-                  {
-                      "note":  "Fail closed; no service_role and no real-data access without approval. | Local/synthetic implementation verified. SEC-001 OPEN; production readiness not established.",
-                      "patch_ids":  [
-
-                                    ],
-                      "status":  "COMPLETED",
-                      "step_id":  "S4-implement-bounded-internal-read-only-preview-interface",
-                      "target_files":  [
-                                           "app/research/internal_preview/operator_authorization.py",
-                                           "app/research/internal_preview/trusted_operator_authorization.py"
-                                       ],
-                      "title":  "Implement Bounded Internal Read Only Preview Interface"
-                  },
-                  {
-                      "note":  "Validate internal map contract with synthetic data and explicit boundaries. | Local/synthetic implementation verified. SEC-001 OPEN; production readiness not established.",
-                      "patch_ids":  [
-
-                                    ],
-                      "status":  "COMPLETED",
-                      "step_id":  "S5-verify-world-os-web-map-integration-contract",
-                      "target_files":  [
-                                           "context/INTERNAL_CANONICAL_ASSET_PREVIEW_V01_CONTRACT.json",
-                                           "context/INTERNAL_CANONICAL_ASSET_PREVIEW_V01_DESIGN.md"
-                                       ],
-                      "title":  "Verify World OS Web Map Integration Contract"
-                  },
-                  {
-                      "note":  "Production readiness verification and closure; reject new product scope. Do not close while security or approval blockers remain. | Production readiness blocked by SEC-001. Real canonical data access remains blocked. Milestone closure pending. | S6 LOCAL_VERIFIED: 14 local evidence items retained; synthetic migration 00800 and post-COMMIT recovery verified; local Research Engine-Web authorization and HTTP/HMAC transport verified. Six production conditions remain pending: production_migration_00800_approval, positive_authorized_production_http_test, production_auth_session_and_permission_verification, trusted_geographic_asset_source, authenticated_research_engine_web_integration, explicit_real_data_access_approval. SEC-001 OPEN/BLOCKED; production NO-GO; milestone IN_PROGRESS; Console synchronization pending.",
-                      "patch_ids":  [
-
-                                    ],
-                      "status":  "IN_PROGRESS",
-                      "step_id":  "S6-production-readiness-verification-and-milestone-closure",
-                      "target_files":  [
-                                           "context/INTERNAL_CANONICAL_ASSET_PREVIEW_SEC001_TEST_RESULTS_V01.md",
-                                           "context/INTERNAL_CANONICAL_ASSET_PREVIEW_AUTHORIZATION_V01_DESIGN.md"
-                                       ],
-                      "title":  "Production Readiness Verification and Milestone Closure"
-                  }
-              ],
-    "workspace_name":  "world-os-research-engine"
+  "milestone_id": "milestone-canonical-asset-population-web-map",
+  "milestone_title": "Canonical Asset Population & World OS Web Map Integration",
+  "steps": [
+    {
+      "note": "Complete synthetic registry tests; no production access. | Local/synthetic implementation verified. SEC-001 OPEN; production readiness not established.",
+      "patch_ids": [],
+      "status": "COMPLETED",
+      "step_id": "S1-verify-synthetic-operator-permission-registry",
+      "target_files": [
+        "app/research/internal_preview/synthetic_permission_registry.py",
+        "tests/test_internal_preview_synthetic_permission_registry.py"
+      ],
+      "title": "Verify Synthetic Operator Permission Registry"
+    },
+    {
+      "note": "Enforce trusted permission provenance, session validity and revocation. | Local/synthetic implementation verified. SEC-001 OPEN; production readiness not established.",
+      "patch_ids": [],
+      "status": "COMPLETED",
+      "step_id": "S2-harden-trusted-operator-authorization-and-sessions",
+      "target_files": [
+        "app/research/internal_preview/operator_authorization.py",
+        "app/research/internal_preview/trusted_operator_authorization.py"
+      ],
+      "title": "Harden Trusted Operator Authorization and Sessions"
+    },
+    {
+      "note": "Preserve 18 passing synthetic tests; production access remains blocked. | Local/synthetic implementation verified. SEC-001 OPEN; production readiness not established.",
+      "patch_ids": [],
+      "status": "COMPLETED",
+      "step_id": "S3-verify-sec001-database-security-boundaries",
+      "target_files": [
+        "context/INTERNAL_CANONICAL_ASSET_PREVIEW_SEC001_COMBINED_TEST_V01.sql",
+        "context/INTERNAL_CANONICAL_ASSET_PREVIEW_SEC001_TEST_RESULTS_V01.md"
+      ],
+      "title": "Verify SEC001 Database Security Boundaries"
+    },
+    {
+      "note": "Fail closed; no service_role and no real-data access without approval. | Local/synthetic implementation verified. SEC-001 OPEN; production readiness not established.",
+      "patch_ids": [],
+      "status": "COMPLETED",
+      "step_id": "S4-implement-bounded-internal-read-only-preview-interface",
+      "target_files": [
+        "app/research/internal_preview/operator_authorization.py",
+        "app/research/internal_preview/trusted_operator_authorization.py"
+      ],
+      "title": "Implement Bounded Internal Read Only Preview Interface"
+    },
+    {
+      "note": "Validate internal map contract with synthetic data and explicit boundaries. | Local/synthetic implementation verified. SEC-001 OPEN; production readiness not established.",
+      "patch_ids": [],
+      "status": "COMPLETED",
+      "step_id": "S5-verify-world-os-web-map-integration-contract",
+      "target_files": [
+        "context/INTERNAL_CANONICAL_ASSET_PREVIEW_V01_CONTRACT.json",
+        "context/INTERNAL_CANONICAL_ASSET_PREVIEW_V01_DESIGN.md"
+      ],
+      "title": "Verify World OS Web Map Integration Contract"
+    },
+    {
+      "note": "Production readiness verification and closure; reject new product scope. Do not close while security or approval blockers remain. | Production readiness blocked by SEC-001. Real canonical data access remains blocked. Milestone closure pending. | S6 LOCAL_VERIFIED: 14 local evidence items retained; synthetic migration 00800 and post-COMMIT recovery verified; local Research Engine-Web authorization and HTTP/HMAC transport verified. Six production conditions remain pending: production_migration_00800_approval, positive_authorized_production_http_test, production_auth_session_and_permission_verification, trusted_geographic_asset_source, authenticated_research_engine_web_integration, explicit_real_data_access_approval. SEC-001 OPEN/BLOCKED; production NO-GO; milestone IN_PROGRESS; Console synchronization pending. | RESEARCH_ENGINE_S6_389_20261025 : Technical evidence S6-330 through S6-341 reconciled; local SEC-001 and OSM preview verified; production operator existence user-confirmed; remaining release approvals and positive production authorization/integration verification not established. NO-GO preserved. No duplicate audits. Continue canonical functional development. | S6-420_AUTHORIZATION_EVIDENCE_20261025: S6-415: Production Supabase Auth login PASS; JWT identity VERIFIED; Auth session issued. S6-419: Existing server integration remains intentionally fail-closed. Production active-session RPC verification and trusted operator READ permission remain unverified. Positive production canonical HTTP test and authenticated Research Engine-Web production integration remain pending. Production release NO-GO; SEC-001 OPEN; S6 IN_PROGRESS. Do not repeat completed local tests or previously verified migration 00800 technical checks. | S6-771_CANONICAL_EVIDENCE_20261027: Production authentication, active operator session and canonical READ VERIFIED. Bounded Web-to-Supabase canonical READ VERIFIED; temporary HTTP activation reverted to DISABLED. CTA Hamburg: two official sources registered successfully. Canonical CTA promotion COMPLETED/INSERTED, execution 2c602fab-f59e-4fee-9267-df0d25f0aa2e. Canonical entity WOS-ENTITY-AE8025A10747F1D0, physical asset PORT_TERMINAL and two PRIMARY provenance fact-source bindings verified through production READ. Earlier six-pending-conditions list is historical and must not be interpreted as the current unverified work list. Public Web map publication and public HTTP activation are not prerequisites for Research Engine technical completion. SEC-001 OPEN; public production release NO-GO. S6 remains IN_PROGRESS pending reconciliation of applicable completion gates. No duplicate CTA promotion, security audits or already completed tests.",
+      "patch_ids": [],
+      "status": "IN_PROGRESS",
+      "step_id": "S6-production-readiness-verification-and-milestone-closure",
+      "target_files": [
+        "context/INTERNAL_CANONICAL_ASSET_PREVIEW_SEC001_TEST_RESULTS_V01.md",
+        "context/INTERNAL_CANONICAL_ASSET_PREVIEW_AUTHORIZATION_V01_DESIGN.md"
+      ],
+      "title": "Production Readiness Verification and Milestone Closure"
+    }
+  ],
+  "workspace_name": "world-os-research-engine"
 }

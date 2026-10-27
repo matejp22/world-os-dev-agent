@@ -287,3 +287,59 @@ Safety boundaries remain unchanged:
 Build an AI-native software organization capable of continuously developing
 World OS 2050 while remaining safe, stateful, inspectable, testable, and under
 human control at critical boundaries.
+
+## Research Engine — S6 evidence synchronization (2026-10-25)
+
+Reference: RESEARCH_ENGINE_S6_389_20261025
+
+Active milestone: Canonical Asset Population & World OS Web Map Integration.
+
+- S1-S5: COMPLETED.
+- S6 local technical phase: LOCAL_VERIFIED.
+- Production function 00800: technical state verified by S6-330, S6-335, S6-336, S6-337 and S6-341.
+- Local Research Engine-Web integration: VERIFIED.
+- Local SEC-001 authorization and security tests: VERIFIED.
+- Five local OSM geometries: IMPLEMENTED and locally validated.
+- Production operator account existence: USER CONFIRMED.
+- Production JWT, active session and READ permission: not independently verified by this synchronization.
+- Formal migration approval/history: not established.
+- Production HTTP verification, canonical source approval and real-data release: remain gated.
+- Production release: NO-GO.
+- SEC-001: OPEN.
+- Milestone: IN_PROGRESS.
+
+Execution decision:
+Do not repeat completed synthetic tests, migration inspection, geographic preview validation or authorization code reviews without new concrete evidence of a defect.
+
+Resume functional Research Engine development strictly according to the canonical Master Roadmap and active milestone requirements.
+
+Do not formally close S6 or synchronize a COMPLETED milestone state until the required release gates have passed.
+
+## Research Engine ? S6 canonical production evidence (2026-10-27)
+
+Active milestone: `milestone-canonical-asset-population-web-map`.
+
+### Verified progress since 2026-10-25
+
+- Production operator authentication, active session and canonical READ: PASS in earlier S6 execution evidence.
+- Bounded Web-to-Supabase canonical READ integration: PASS; temporary HTTP activation reverted to DISABLED.
+- CTA Hamburg official source registration: COMPLETED; two sources created.
+- CTA canonical promotion: COMPLETED / INSERTED.
+- CTA canonical entity: `WOS-ENTITY-AE8025A10747F1D0`; production READ VERIFIED.
+- CTA physical asset: `PORT_TERMINAL`; production READ VERIFIED.
+- CTA provenance: two PRIMARY fact-source bindings; production READ VERIFIED.
+- CTA promotion execution ID: `2c602fab-f59e-4fee-9267-df0d25f0aa2e`.
+- CTA promotion batch ID: `7d2c744a-9869-582c-b4e2-6fd31d5da1c1`.
+- Approved manifest SHA-256: `4dbc1288541f943b3a3e8b84edb7380d3c1dec2f5fa41855b9661891f9e53e22`.
+
+### Milestone and release boundaries
+
+- S1-S5 remain COMPLETED; S6 remains IN_PROGRESS.
+- Public Web map publication and public HTTP activation are not prerequisites for Research Engine technical completion.
+- Production public release remains NO-GO; public HTTP activation remains DISABLED.
+- SEC-001 remains OPEN pending reconciliation of applicable technical and authorization completion gates.
+- CTA geographic boundary is not approved or published.
+- No further CTA source registration or canonical promotion is required for this verified record.
+- Milestone closure and final Dev Agent Console synchronization remain pending.
+- Existing release-gate documents retain their historical evidence; newer verified results supersede outdated PENDING descriptions only within their proven scope.
+- No automatic Git, database, deployment or public publication actions are authorized by this roadmap update.
